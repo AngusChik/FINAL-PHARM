@@ -2211,6 +2211,7 @@
     body.app-shell .container { width: 100%; margin: 0; padding: 0; }
   }
 </style>
+<link rel="stylesheet" href="{% static 'css/checkin-workspace.css' %}?v=20261019-compact1">
 
 <div class="checkin-page">
   <div class="order-header">
@@ -2256,7 +2257,7 @@
       <h2>End this inventory count?</h2>
       <p>You'll review expected vs counted and confirm before any stock is changed. Nothing is applied until you click <strong>Apply &amp; Finish</strong> on the next screen.</p>
       <div class="ic-end-actions">
-        <button type="button" class="ic-btn ic-btn-ghost" id="icEndCancel">Cancel &amp; Continue Scanning</button>
+        <button type="button" class="ic-btn ic-btn-ghost" id="icEndCancel" data-ui-popup-close>Cancel &amp; Continue Scanning</button>
         <a href="{% url 'checkin_reconcile' session_id=session.pk %}" class="ic-btn ic-btn-go">Confirm — Review Counts</a>
       </div>
     </div>
@@ -2311,7 +2312,7 @@
   <div class="main-grid{% if session.inventory_mode %} ic-3col{% endif %}{% if product and not session.inventory_mode %} has-history{% endif %}">
     <div class="checkin-primary-column">
     <div class="right-items">
-      <div class="product-card">
+      <div class="product-card"{% if edit_form.errors %} data-inline-errors="true"{% endif %}>
         {% if product %}
           <!-- 1. Header with active status merged in -->
           <div class="product-card-header {% if product.status %}is-active-header{% else %}is-inactive-header{% endif %}">
@@ -2346,10 +2347,11 @@
             </div>
             <div class="product-header-actions">
               <div class="product-header-primary-actions">
-                <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit</button>
+                <button type="button" class="btn-action btn-secondary" id="toggleEditBtn">Edit product &amp; lots</button>
                 <details class="product-actions-menu">
                   <summary class="btn-action btn-secondary" aria-label="More product actions">Actions</summary>
                   <div class="product-actions-popover">
+                    <button type="button" id="setExactStockButton">{% if session.inventory_mode %}Set exact count{% else %}Set exact stock{% endif %}</button>
                     <button type="button" id="qaPrintLabel"
                             data-product-id="{{ product.product_id }}"
                             data-add-url="{% url 'label_queue_add' %}"
@@ -2360,10 +2362,6 @@
                   </div>
                 </details>
               </div>
-              <div class="edit-actions" id="inlineEditActions" style="display:none; gap: 0.45rem; align-items:center;">
-                <button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
-                <button type="submit" form="inlineEditForm" class="btn-action btn-primary">Save</button>
-              </div>
               <div class="edit-mode mark-active-pill">
                 <label style="display:flex; align-items:center; gap:8px; cursor:pointer; white-space:nowrap;">
                   {{ edit_form.status }}
@@ -2373,32 +2371,33 @@
             </div>
           </div>
 
-          <!-- 2. Receiving and restock workspace (outside the edit form to avoid nested forms) -->
-          <div class="receiving-restock-workspace{% if restock %} has-restock{% endif %}">
-          <section class="receiving-strip{% if session.inventory_mode %} is-count-mode{% endif %}"
-                   aria-label="{% if session.inventory_mode %}Count stock{% else %}Receive stock{% endif %}">
-            <h2 class="receiving-strip-title">
-              {% if session.inventory_mode %}
-                Stock count
-              {% else %}
-                <span>Product lots</span>
-                <small>Select the supplier lot before scanning or receiving</small>
-              {% endif %}
-            </h2>
-            <div class="receive-stock-summary{% if not session.inventory_mode %} ui-stock-summary{% endif %}">
-              <div class="receive-stock-copy">
-              {% if session.inventory_mode %}
-                <span class="receive-stock-label">Counted</span>
-                <span class="receive-stock-number sb-editable" id="sbValue" title="Double-click to type an exact count">{{ count_line.counted_qty|default:0 }}</span>
-                <span class="receive-system-stock">System: <span class="ui-stock-quantity ui-stock-quantity--inline">{{ product.quantity_in_stock }}</span></span>
-              {% else %}
-                <span class="receive-stock-label ui-stock-label">In stock</span>
-                <span class="receive-stock-number sb-editable ui-stock-value" id="sbValue" data-system-stock-display title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</span>
-              {% endif %}
+          <p class="inline-receiving-paused edit-mode" role="status">Receiving paused while editing. Save or cancel to continue.</p>
+          <section class="receiving-strip unified-lots-workspace{% if session.inventory_mode %} is-count-mode{% endif %}" aria-label="Product lots">
+            <div class="checkin-lot-heading" id="checkinLotHeading">
+              <h2 class="receiving-strip-title">Product lots</h2>
+            </div>
+            <div class="receiving-toolbar view-mode">
+              <div class="receiving-selected-target" aria-live="polite">
+                {% if session.inventory_mode %}<strong>Inventory Count</strong><small>Adjust the count; review before applying to stock.</small>{% else %}
+                <span class="receiving-selected-target-label">Receive into</span>
+                <strong id="receivingTargetName">New lot</strong>
+                <small id="receivingTargetMeta">Enter a lot number and optional expiry</small>{% endif %}
               </div>
-
-              {# Double-click the number above to set an exact quantity (e.g. a big delivery) instead of clicking ＋ repeatedly. #}
-              <form method="post" id="sbSetForm" class="sb-set-form sb-adjust-form" data-no-submit-state style="display:none;"
+            </div>
+            <div class="unified-lot-workspace">
+              <div class="receive-stock-summary">
+                <div class="receive-stock-copy">
+                  <span class="receive-stock-label" id="inlineStockLabel" data-view-label="{% if session.inventory_mode %}Counted{% else %}In stock{% endif %}">{% if session.inventory_mode %}Counted{% else %}In stock{% endif %}</span>
+                  {% if session.inventory_mode %}
+                  <span class="receive-stock-number sb-editable view-mode" id="sbValue" title="Double-click to type an exact count">{{ count_line.counted_qty|default:0 }}</span>
+                  <output class="receive-stock-number edit-mode" data-system-stock-display>{{ product.quantity_in_stock }}</output>
+                  <span class="receive-system-stock view-mode">System: <span data-count-system-stock>{{ product.quantity_in_stock }}</span></span>
+                  {% else %}
+                  <output class="receive-stock-number sb-editable" id="sbValue" data-system-stock-display title="Double-click to type an exact quantity">{{ product.quantity_in_stock }}</output>
+                  {% endif %}
+                  <span class="receive-stock-units">units</span>
+                </div>
+                <form method="post" id="sbSetForm" class="sb-set-form sb-adjust-form" data-no-submit-state style="display:none;"
                     action="{% url 'set_quantity' session_id=session.pk product_id=product.product_id %}">
                 {% csrf_token %}
                 <input type="hidden" name="existing_lot_id" id="setExistingLotId" value="">
@@ -2409,67 +2408,29 @@
                        min="0" max="100000" inputmode="numeric" autocomplete="off">
                 <span class="sb-set-hint">Enter to save · Esc to cancel</span>
               </form>
-              <div class="stock-control-group">
-                <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
-                  {% csrf_token %}
-                  <button type="submit" class="btn-stock-adj btn-stock-minus" aria-label="Remove one unit">－</button>
-                </form>
-                <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
-                  {% csrf_token %}
-                  <input type="hidden" name="amount" value="1">
-                  <button type="submit" class="btn-stock-adj btn-stock-plus" aria-label="{% if session.inventory_mode %}Add one unit{% else %}Receive one unit into the selected lot{% endif %}">
-                    {% if session.inventory_mode %}＋{% else %}＋ Receive{% endif %}
-                  </button>
-                </form>
+                <div class="stock-control-group view-mode">
+                  <form method="post" class="sb-adjust-form" data-no-submit-state action="{% url 'delete_one' session_id=session.pk product_id=product.product_id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-stock-adj btn-stock-minus" aria-label="Remove one unit">− 1</button>
+                  </form>
+                  <form method="post" id="quickLotAddForm" class="sb-adjust-form" data-no-submit-state action="{% url 'add_quantity' session_id=session.pk product_id=product.product_id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="amount" value="1">
+                    <button type="submit" class="btn-stock-adj btn-stock-plus" aria-label="{% if session.inventory_mode %}Add one unit{% else %}Receive one unit into the selected lot{% endif %}">+ 1</button>
+                  </form>
+                </div>
               </div>
-
-              {% if not session.inventory_mode %}
-              <div class="receiving-selected-target" aria-live="polite">
-                <span class="receiving-selected-target-label">Receive destination</span>
-                <strong id="receivingTargetName">New lot</strong>
-                <small id="receivingTargetMeta">Enter a lot number and optional expiry</small>
-              </div>
-              {% endif %}
+              {% include "partials/_checkin_product_lots_panel.html" %}
             </div>
-
-            {% if not session.inventory_mode %}
-            {% include "partials/_checkin_product_lots_panel.html" %}
-            {% endif %}
           </section>
-
-          <!-- 3. Always-visible restock guidance -->
-          {% if restock %}
-          <section class="restock-card restock-{{ restock.tone }}" aria-label="Restock trend">
-            <div class="restock-label">Restock Trend &middot; last 60 days</div>
-            <div class="restock-top">
-              <span class="restock-icon">{% if restock.tone == 'up' %}&uarr;{% elif restock.tone == 'down' %}&darr;{% elif restock.tone == 'dead' %}&#9208;{% else %}&rarr;{% endif %}</span>
-              <div>
-                <div class="restock-headline">{{ restock.headline }}</div>
-                <div class="restock-detail">{{ restock.detail }}</div>
-              </div>
-            </div>
-            <div class="restock-metrics">
-              <div class="rm"><span class="rm-label">Sold (60d)</span><span class="rm-val">{{ restock.sold_60d }}</span></div>
-              <div class="rm"><span class="rm-label">Per day</span><span class="rm-val">{{ restock.per_day }}</span></div>
-              <div class="rm"><span class="rm-label">Velocity</span><span class="rm-val">{{ restock.velocity|title }}</span></div>
-              <div class="rm"><span class="rm-label">Suggested order</span><span class="rm-val">{{ restock.suggested_qty }}</span></div>
-            </div>
-            {% if not session.inventory_mode %}
-              <div class="restock-product-movement" id="productMovementSummary"
-                   aria-labelledby="productMovementTitle">
-                {% include "partials/_checkin_product_movement.html" %}
-              </div>
-            {% endif %}
-          </section>
-          {% endif %}
-
-          </div>
 
           <!-- 4. Edit form + collapsible product details -->
           <form method="post"
                 action="{% url 'checkin_edit_product' session_id=session.pk product_id=product.product_id %}"
                 class="inline-edit-form"
                 id="inlineEditForm"
+                data-return-url="{% url 'checkin_session' session_id=session.pk %}?product_id={{ product.product_id }}"
+                data-refresh-url="{% url 'checkin_session' session_id=session.pk %}?product_id={{ product.product_id }}&amp;format=checkin_fragments"
                 data-no-scroll-restore
                 data-enter-next-form
                 aria-keyshortcuts="Enter"
@@ -2485,7 +2446,7 @@
             </div>
 
             <details class="product-secondary-details" id="productSecondaryDetails"
-                     data-checkin-session-id="{{ session.pk }}" open>
+                     data-checkin-session-id="{{ session.pk }}">
               <summary>
                 <span>Product details</span>
                 <span class="product-secondary-hint">Barcode, item number and notes</span>
@@ -2516,17 +2477,15 @@
               </div>
             </div>
 
-            <div class="edit-mode">
-              {% if edit_form.quantity_in_stock.errors %}
-                <div class="lot-sync-error ui-inline-alert ui-inline-alert--error" data-lot-sync-error role="alert">
-                  {{ edit_form.quantity_in_stock.errors.0 }}
-                </div>
-              {% endif %}
-              {% include "includes/product_lot_editor.html" with lot_rows=product_lots derive_stock_total=True current_stock=product.quantity_in_stock %}
-            </div>
             </details>
 
+            {{ edit_form.errors|json_script:"inlineEditErrors" }}
           </form>
+          <footer class="edit-actions inline-save-bar" id="inlineEditActions" style="display:none;">
+            <span>Changes are saved together</span>
+            <div><button type="button" class="btn-action btn-secondary" id="cancelInlineEdit">Cancel</button>
+            <button type="submit" form="inlineEditForm" class="btn-action btn-primary">Save changes</button></div>
+          </footer>
 
         {% else %}
           <div class="no-product-state">
@@ -2538,6 +2497,36 @@
       </div>
     </div>
     </div>
+
+    {% if product and restock %}
+    <aside class="checkin-trends-panel" aria-label="Trends and history">
+      <details id="checkinTrends" data-checkin-session-id="{{ session.pk }}" open>
+        <summary><span>Trends &amp; history</span><span class="trends-summary-hint"><span class="trends-hide">Hide</span><span class="trends-show">Show</span> restock guidance &amp; activity</span></summary>
+        <div class="checkin-trends-body"><section class="restock-card restock-{{ restock.tone }}" aria-label="Restock trend">
+            <div class="restock-label">Restock Trend &middot; last 60 days</div>
+            <div class="restock-top">
+              <span class="restock-icon">{% if restock.tone == 'up' %}&uarr;{% elif restock.tone == 'down' %}&darr;{% elif restock.tone == 'dead' %}&#9208;{% else %}&rarr;{% endif %}</span>
+              <div>
+                <div class="restock-headline">{{ restock.headline }}</div>
+                <div class="restock-detail">{{ restock.detail }}</div>
+              </div>
+            </div>
+            <div class="restock-metrics">
+              <div class="rm"><span class="rm-label">Sold (60d)</span><span class="rm-val">{{ restock.sold_60d }}</span></div>
+              <div class="rm"><span class="rm-label">Per day</span><span class="rm-val">{{ restock.per_day }}</span></div>
+              <div class="rm"><span class="rm-label">Velocity</span><span class="rm-val">{{ restock.velocity|title }}</span></div>
+              <div class="rm"><span class="rm-label">Suggested order</span><span class="rm-val">{{ restock.suggested_qty }}</span></div>
+            </div>
+            {% if not session.inventory_mode %}
+              <div class="restock-product-movement" id="productMovementSummary"
+                   aria-labelledby="productMovementTitle">
+                {% include "partials/_checkin_product_movement.html" %}
+              </div>
+            {% endif %}
+          </section></div>
+      </details>
+    </aside>
+    {% endif %}
 
     <div class="checkin-side-column">
     <div class="left-controls">
@@ -2691,6 +2680,35 @@ document.addEventListener('DOMContentLoaded', function () {
     const editBtn = document.getElementById('toggleEditBtn');
     const editActions = document.getElementById('inlineEditActions');
     let products = [];
+    window.isCheckinInlineEditing = function() {
+        return !!document.querySelector('.product-card.is-editing');
+    };
+    let inlineSavedPayload = '';
+    let inlinePausedControls = [];
+    function inlinePayload() { return inlineForm ? new URLSearchParams(new FormData(inlineForm)).toString() : ''; }
+    function setInlinePaused(paused) {
+        if (paused) {
+            window.setReceivingActionLocked(true);
+            inlinePausedControls = [barcodeInput, document.getElementById('setExactStockButton')].filter(Boolean).map(control => ({control, disabled: control.disabled}));
+            inlinePausedControls.forEach(state => { state.control.disabled = true; });
+            pauseAutoScan();
+            clearTimeout(idleTimer);
+        } else {
+            window.setReceivingActionLocked(false);
+            inlinePausedControls.forEach(state => { state.control.disabled = state.disabled; });
+            inlinePausedControls = [];
+        }
+        const ready = document.querySelector('#search-box .hint-ready');
+        if (ready) ready.textContent = paused ? 'Paused' : 'Ready';
+        document.getElementById('search-box')?.classList.toggle('is-inline-paused', paused);
+        const label = document.getElementById('inlineStockLabel');
+        if (label) label.textContent = paused ? 'Stock after saving' : label.dataset.viewLabel;
+    }
+    window.addEventListener('beforeunload', function(event) {
+        if (window.isCheckinInlineEditing() && (inlinePayload() !== inlineSavedPayload || inlineForm.dataset.saving === 'true')) {
+            event.preventDefault(); event.returnValue = '';
+        }
+    });
 
     function flashCheckinUpdateTargets(targets) {
         Array.from(new Set((targets || []).filter(Boolean))).forEach(function(target) {
@@ -2737,7 +2755,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const scanText = document.getElementById('scanStatusText');
 
     const forceScannerFocus = () => {
-        if (!autoScanEnabled) return;
+        if (!autoScanEnabled || window.isCheckinInlineEditing()) return;
         if (barcodeInput && document.activeElement !== barcodeInput) {
             barcodeInput.focus({ preventScroll: true });
         }
@@ -2754,10 +2772,11 @@ document.addEventListener('DOMContentLoaded', function () {
         clearTimeout(idleTimer);
         if (scanBadge) { scanBadge.classList.remove('active'); scanBadge.classList.add('paused'); }
         if (scanText) scanText.textContent = 'Auto-scan PAUSED';
-        idleTimer = setTimeout(() => { resumeAutoScan(); forceScannerFocus(); }, LONG_IDLE_TIMEOUT);
+        if (!window.isCheckinInlineEditing()) idleTimer = setTimeout(() => { resumeAutoScan(); forceScannerFocus(); }, LONG_IDLE_TIMEOUT);
     };
 
     const resumeAutoScan = () => {
+        if (window.isCheckinInlineEditing()) return;
         autoScanEnabled = true;
         clearTimeout(idleTimer);
         if (scanBadge) { scanBadge.classList.remove('paused'); scanBadge.classList.add('active'); }
@@ -2908,6 +2927,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                         return;
                     }
+                    if (window.isCheckinInlineEditing()) { event.preventDefault(); return; }
                     const query = searchInput.value.trim();
                     if (!query) return;
                     const exactBarcode = ProductLookup.exactBarcodeProduct(products, query);
@@ -2964,6 +2984,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // while its previous navigation began. Make that restored lookup
             // usable immediately instead of requiring a browser refresh.
             window.addEventListener('pageshow', function() {
+                if (window.isCheckinInlineEditing()) return;
                 if (window.resetReceivingActionLock) window.resetReceivingActionLock();
                 if (searchInput) searchInput.readOnly = false;
                 const submitButton = barcodeForm && barcodeForm.querySelector('[type="submit"]');
@@ -2977,8 +2998,8 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- 4. INLINE EDIT & DATE LOGIC ---
     const productCard = document.querySelector('.product-card');
     const productSecondaryDetails = document.getElementById('productSecondaryDetails');
-    const inlineLotEditor = inlineForm && inlineForm.querySelector('[data-derive-stock-total]');
-    const inlineLotRows = inlineLotEditor && inlineLotEditor.querySelector('[data-lot-rows]');
+    let inlineLotEditor = document.getElementById('receivingSavedLots');
+    let inlineLotRows = inlineLotEditor && inlineLotEditor.querySelector('[data-lot-rows]');
     const inlineLotTotal = inlineLotEditor && inlineLotEditor.querySelector('[data-lot-derived-total]');
     const inlineStockInput = inlineForm && inlineForm.querySelector('[name="quantity_in_stock"]');
     const inlineStockDisplay = document.querySelector('[data-system-stock-display]');
@@ -2988,7 +3009,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const productDetailsStorageKey = productDetailsSessionId
         ? 'checkin-product-details:' + productDetailsSessionId
         : '';
-    let productDetailsPreferredOpen = true;
+    let productDetailsPreferredOpen = false;
     let ignoredProgrammaticDetailsState = null;
     if (productDetailsStorageKey) {
         try {
@@ -3013,6 +3034,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
             ignoredProgrammaticDetailsState = null;
+            if (window.isCheckinInlineEditing()) return;
             productDetailsPreferredOpen = productSecondaryDetails.open;
             if (productDetailsStorageKey) {
                 try {
@@ -3033,7 +3055,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function inlineLotStockTotal() {
         let total = 0;
         if (!inlineLotEditor) return total;
-        inlineLotEditor.querySelectorAll('[name="lot_quantity"]').forEach(function(input) {
+        inlineLotEditor.querySelectorAll('.lot-editor-row:not([data-lot-removed="true"]) [name="lot_quantity"]').forEach(function(input) {
             total += Math.max(0, parseInt(input.value, 10) || 0);
         });
         return total;
@@ -3117,7 +3139,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     window.refreshCheckinInlineLotRows = function(markup, systemQuantity) {
-        if (!inlineLotRows) return;
+        if (!inlineLotRows || window.isCheckinInlineEditing()) return;
         savedInlineLotMarkup = markup || '';
         const parsedQuantity = parseInt(systemQuantity, 10);
         if (!Number.isNaN(parsedQuantity)) {
@@ -3128,47 +3150,97 @@ document.addEventListener('DOMContentLoaded', function () {
         // authoritative rows saved above; outside Edit, update immediately.
         if (productCard && productCard.classList.contains('is-editing')) return;
         restoreInlineLotRows(savedInlineLotMarkup);
+        if (inlineStockDisplay) inlineStockDisplay.textContent = savedInlineStockValue;
         inlineStockChangedOutsideLots = inlineLotStockTotal() !== inlineAuthoritativeStock;
         if (!inlineStockChangedOutsideLots) clearInlineLotMismatch();
     };
 
-    if (inlineLotEditor) {
-        inlineLotEditor.addEventListener('input', refreshInlineLotStock);
-        inlineLotEditor.addEventListener('change', refreshInlineLotStock);
-        inlineLotEditor.addEventListener('click', function(event) {
-            if (event.target.closest('[data-add-lot], .lot-row-remove')) {
-                window.requestAnimationFrame(refreshInlineLotStock);
+    function bindInlineLotElements() {
+        inlineLotEditor = document.getElementById('receivingSavedLots');
+        inlineLotRows = inlineLotEditor?.querySelector('[data-lot-rows]');
+        inlineLotRows?.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
+        if (!window.isCheckinInlineEditing()) savedInlineLotMarkup = inlineLotRows?.innerHTML || '';
+    }
+    if (productCard) {
+        productCard.addEventListener('invalid', function(event) {
+            const field = event.target;
+            if (!window.isCheckinInlineEditing() || field.form !== inlineForm) return;
+            event.preventDefault();
+            field.parentElement.querySelectorAll('.inline-field-error').forEach(error => error.remove());
+            const notice = document.createElement('span');
+            notice.className = 'inline-field-error';
+            notice.textContent = field.validationMessage;
+            field.parentElement.appendChild(notice);
+            field.classList.add('ui-invalid'); field.setAttribute('aria-invalid', 'true');
+            inlineErrorSummary.textContent = 'Please correct the highlighted fields.';
+            inlineErrorSummary.hidden = false;
+            if (field.closest('#productSecondaryDetails')) setProductDetailsOpen(true);
+            window.requestAnimationFrame(() => productCard.querySelector('[aria-invalid="true"]')?.focus());
+        }, true);
+        productCard.addEventListener('input', refreshInlineLotStock);
+        productCard.addEventListener('change', refreshInlineLotStock);
+        productCard.addEventListener('click', function(event) {
+            if (!window.isCheckinInlineEditing()) return;
+            if (event.target.closest('[data-add-lot]')) {
+                const template = inlineLotRows.querySelector('[data-lot-row-template]');
+                const row = template.content.firstElementChild.cloneNode(true);
+                inlineLotRows.appendChild(row);
+                row.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);
+                row.querySelector('[name="lot_number"]').focus();
+                refreshInlineLotStock();
+            }
+            const remove = event.target.closest('.lot-row-remove');
+            if (remove) {
+                const row = remove.closest('.lot-editor-row');
+                if (row.querySelector('[name="lot_id"]').value) {
+                    row.querySelector('[name="lot_removed"]').value = '1';
+                    row.dataset.lotRemoved = 'true'; row.hidden = true;
+                } else {
+                    row.querySelectorAll('.flatpickr-date').forEach(input => input._flatpickr?.destroy());
+                    row.remove();
+                }
+                refreshInlineLotStock();
             }
         });
-        refreshInlineLotStock();
     }
-
     if (editBtn && inlineForm && productCard) {
-        editBtn.addEventListener('click', () => {
+        editBtn.addEventListener('click', async () => {
+            if (window.isCheckinInlineEditing() || lotAssignmentActive || window.isReceivingActionLocked()) return;
+            editBtn.disabled = true;
+            try { await window.flushReceivingDraftSave?.(); }
+            catch(error) { window.showToast?.(error.message || 'Save the receiving draft before editing.', 'error'); return; }
+            finally { editBtn.disabled = false; }
+            window.cancelCheckinFragmentRefresh?.();
+            savedInlineLotMarkup = inlineLotRows?.innerHTML || '';
             savedInlineStockValue = inlineStockDisplay ? inlineStockDisplay.textContent.trim() : '';
             inlineAuthoritativeStock = parseInt(savedInlineStockValue, 10) || 0;
+            inlineSavedPayload = inlinePayload();
             productCard.classList.add('is-editing');
             setProductDetailsOpen(true);
             editActions.style.display = 'flex';
             editBtn.style.display = 'none';
+            setInlinePaused(true);
             refreshInlineLotStock();
+            productCard.querySelector('[name="price"]')?.focus();
         });
         document.getElementById('cancelInlineEdit')?.addEventListener('click', () => {
+            if (inlineForm.dataset.saving === 'true') return;
+            if (productCard.dataset.inlineErrors === 'true') {
+                closeInlineEdit();
+                window.location.assign(inlineForm.dataset.returnUrl);
+                return;
+            }
             inlineForm.reset();
             clearInlineErrors();
             restoreInlineLotRows(savedInlineLotMarkup);
             if (inlineStockDisplay) inlineStockDisplay.textContent = savedInlineStockValue;
             closeInlineEdit();
-        });
-
-        // Link header inputs outside the form to the edit form.
-        document.querySelectorAll('.product-card-header .edit-mode input, .product-card-header .edit-mode select').forEach(el => {
-            el.setAttribute('form', 'inlineEditForm');
+            window.refreshCheckinFragments?.(inlineForm.dataset.refreshUrl);
         });
     }
-
     function closeInlineEdit() {
         if (productCard) productCard.classList.remove('is-editing');
+        setInlinePaused(false);
         setProductDetailsOpen(productDetailsPreferredOpen);
         if (editActions) editActions.style.display = 'none';
         if (editBtn) editBtn.style.display = '';
@@ -3177,24 +3249,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function initExpiryInput(input) {
-        flatpickr(input, {
-            dateFormat: "d-m-Y",
-            allowInput: true,
-            monthSelectorType: "static",
-            onClose: function(selectedDates, dateStr, instance) {
-                instance.input.value = dateStr.replace(/-+$/, '');
-                instance.input.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        });
-        input.addEventListener('input', function() {
-            let val = this.value.replace(/\D/g, ''); let out = '';
-            if (val.length > 0) {
-                out += val.substring(0, 2);
-                if (val.length > 2) out += '-' + val.substring(2, 4);
-                if (val.length > 4) out += '-' + val.substring(4, 8);
-            }
-            this.value = out.substring(0, 10);
-        });
+        window.uiExpiryDates.init(input);
     }
 
     function syncFlatpickrValue(input) {
@@ -3298,72 +3353,47 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function applyInlineErrors(nextForm) {
         clearInlineErrors();
-        var lotSyncError = nextForm.querySelector('[data-lot-sync-error]');
-        if (lotSyncError) {
-            var nextStockDisplay = nextForm.ownerDocument.querySelector('[data-system-stock-display]');
-            if (nextStockDisplay) {
-                inlineAuthoritativeStock = parseInt(nextStockDisplay.textContent, 10) || 0;
-                if (inlineStockDisplay) inlineStockDisplay.textContent = String(inlineAuthoritativeStock);
-            }
-            inlineStockChangedOutsideLots = true;
-            showInlineLotMismatch(lotSyncError.textContent.trim());
-            return;
-        }
-        var badNames = [];
-        nextForm.querySelectorAll('[aria-invalid="true"], .is-invalid').forEach(function(field) {
-            if (field.name && badNames.indexOf(field.name) === -1) badNames.push(field.name);
-        });
-        nextForm.querySelectorAll('.errorlist[id$="_error"]').forEach(function(list) {
-            var id = list.id.replace(/_error$/, '');
-            var field = nextForm.ownerDocument.getElementById(id);
-            if (field && field.name && badNames.indexOf(field.name) === -1) badNames.push(field.name);
-        });
-        var first = null;
-        var badFields = [];
-        badNames.forEach(function(name) {
-            Array.from(inlineForm.elements).filter(function(field) {
-                return field.name === name && field.type !== 'hidden';
-            }).forEach(function(field) {
-                field.classList.add('ui-invalid');
-                field.setAttribute('aria-invalid', 'true');
-                var box = field.closest('.detail-box, .product-meta-edit, .mark-active-pill');
-                if (box) box.classList.add('ui-field-invalid');
-                badFields.push(field);
-                if (!first) first = field;
+        let errors = {};
+        try { errors = JSON.parse(nextForm.ownerDocument.getElementById('inlineEditErrors').textContent); } catch(error) {}
+        let first = null;
+        const messages = [];
+        Object.entries(errors).forEach(function([name, values]) {
+            values.forEach(function(message) {
+                messages.push(message);
+                let target;
+                if (name === 'quantity_in_stock') {
+                    const match = message.match(/Lot row (\d+)/i);
+                    const row = match && inlineLotRows.querySelectorAll('.lot-editor-row')[Number(match[1])-1];
+                    if (row && !row.hidden) {
+                        const field = /expiry|date/i.test(message) && !/identity|duplicates/i.test(message) ? 'lot_expiry'
+                            : /quantity|stock/i.test(message) ? 'lot_quantity' : 'lot_number';
+                        target = row.querySelector('[name="'+field+'"]');
+                        row.classList.add('lot-row-error');
+                    } else target = inlineLotEditor;
+                } else target = Array.from(inlineForm.elements).find(field => field.name === name && field.type !== 'hidden');
+                if (!target) target = inlineLotEditor;
+                const notice = document.createElement('span');
+                notice.className = 'inline-field-error'; notice.textContent = message;
+                notice.id = 'inline-field-error-' + document.querySelectorAll('.inline-field-error').length;
+                if (target.matches('input,select,textarea')) {
+                    target.classList.add('ui-invalid'); target.setAttribute('aria-invalid','true');
+                    target.setAttribute('aria-errormessage', notice.id);
+                    target.parentElement.appendChild(notice);
+                    first ||= target;
+                } else { target.prepend(notice); }
             });
         });
-        var fieldLabels = {
-            barcode: 'Barcode / UPC',
-            item_number: 'Item Number',
-            price: 'Price',
-            taxable: 'Tax status',
-            status: 'Product status',
-            expiry_date: 'Expiry date',
-            description: 'Internal notes',
-            category: 'Category'
-        };
-        var readableNames = badNames.map(function(name) {
-            return fieldLabels[name] || name.replace(/_/g, ' ');
-        });
-        if (inlineErrorSummary) {
-            inlineErrorSummary.textContent = readableNames.length
-                ? 'Please correct the highlighted fields: ' + readableNames.join(', ') + '.'
-                : 'Please correct the highlighted fields before saving.';
-            inlineErrorSummary.hidden = false;
-        }
-        var secondaryDetails = document.getElementById('productSecondaryDetails');
-        if (secondaryDetails) secondaryDetails.open = true;
-        if (window.showCheckinLiveUpdate) {
-            window.showCheckinLiveUpdate('Update blocked — correct the red highlighted fields.', badFields, 'error');
-        }
-        if (first) {
-            first.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            try { first.focus({ preventScroll: true }); } catch (error) { first.focus(); }
-        }
+        inlineErrorSummary.textContent = messages.length ? messages.join(' ') : 'The update could not be saved. Please try again.';
+        inlineErrorSummary.hidden = false;
+        setProductDetailsOpen(true);
+        if (first) window.requestAnimationFrame(() => first.focus());
     }
 
     function clearInlineErrors() {
         if (!productCard || !inlineForm) return;
+        productCard.querySelectorAll('.inline-field-error').forEach(error => error.remove());
+        productCard.querySelectorAll('.lot-row-error').forEach(row => row.classList.remove('lot-row-error'));
+        productCard.querySelectorAll('[aria-errormessage]').forEach(field => field.removeAttribute('aria-errormessage'));
         productCard.ownerDocument.querySelectorAll(
             '#inlineEditForm .ui-invalid, [form="inlineEditForm"].ui-invalid'
         ).forEach(function(field) {
@@ -3384,8 +3414,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function applyInlineSuccess(page, nextForm) {
         clearInlineErrors();
-        var currentViews = productCard.querySelectorAll('.view-mode');
-        var nextViews = page.querySelectorAll('.product-card .view-mode');
+        delete productCard.dataset.inlineErrors;
+        var currentViews = productCard.querySelectorAll('.product-card-header .view-mode, .checkin-details-grid .view-mode');
+        var nextViews = page.querySelectorAll('.product-card-header .view-mode, .checkin-details-grid .view-mode');
         currentViews.forEach(function(view, index) {
             if (nextViews[index]) view.innerHTML = nextViews[index].innerHTML;
         });
@@ -3399,7 +3430,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (currentHeader && nextHeader) currentHeader.className = nextHeader.className;
 
         syncInlineControls(nextForm);
-        var nextLotRows = nextForm.querySelector('[data-lot-rows]');
+        var nextLotRows = page.querySelector('[data-lot-rows]');
         savedInlineLotMarkup = nextLotRows ? nextLotRows.innerHTML : '';
         restoreInlineLotRows(savedInlineLotMarkup);
         var nextStockDisplay = page.querySelector('[data-system-stock-display]');
@@ -3419,7 +3450,21 @@ document.addEventListener('DOMContentLoaded', function () {
             currentProducts.textContent = nextProducts.textContent;
             try { products = JSON.parse(nextProducts.textContent.trim()); } catch (error) {}
         }
-        syncReceivingLotOptionsFromPage(page);
+        receivingExpiredLotConfirmedId = '';
+        syncReceivingLotOptionsFromPage(page, true);
+        savedInlineLotMarkup = inlineLotRows?.innerHTML || '';
+        const systemStock = document.querySelector('[data-count-system-stock]');
+        if (systemStock) systemStock.textContent = savedInlineStockValue;
+        const history = document.getElementById('sessionHistoryCard');
+        const nextHistory = page.getElementById('sessionHistoryCard');
+        if (history && nextHistory) history.innerHTML = nextHistory.innerHTML;
+        const trendBody = document.querySelector('.checkin-trends-body');
+        const nextTrendBody = page.querySelector('.checkin-trends-body');
+        if (trendBody && nextTrendBody) {
+            window.destroyCheckinProductMovementChart?.();
+            trendBody.innerHTML = nextTrendBody.innerHTML;
+            window.renderCheckinProductMovementChart?.();
+        }
         closeInlineEdit();
         if (window.showCheckinLiveUpdate) {
             window.showCheckinLiveUpdate('Product details updated.', [productCard.querySelector('.product-secondary-details')]);
@@ -3441,6 +3486,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const receivingTargetMeta = document.getElementById('receivingTargetMeta');
 
     function bindReceivingPanelElements() {
+        // Keep the fragment's current controls together in the lot heading.
+        // Moving these nodes preserves their form associations and delegated actions.
+        const panel = document.getElementById('receivingSavedLots');
+        const heading = document.getElementById('checkinLotHeading');
+        const actions = panel?.querySelector('.receiving-saved-lots-actions');
+        if (heading && actions) {
+            heading.querySelector('.receiving-saved-lots-actions')?.remove();
+            heading.append(actions);
+            panel.querySelector('.receiving-saved-lots-title')?.remove();
+        }
         receivingLotSelect = document.getElementById('receivingLotSelect');
         receivingLotNumber = document.getElementById('receivingLotNumber');
         receivingLotExpiry = document.getElementById('receivingLotExpiry');
@@ -3878,6 +3933,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function enterLotAssignmentMode() {
+        if (window.isCheckinInlineEditing()) return;
         const panel = assignmentPanel();
         const toggle = document.getElementById('assignLotStockButton');
         if (!panel || !toggle || toggle.disabled) return;
@@ -3915,7 +3971,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (firstChoice) firstChoice.focus();
     }
 
-    function replaceReceivingLotsPanel(markup) {
+    function replaceReceivingLotsPanel(markup, fromInlineSave) {
+        if (window.isCheckinInlineEditing() && !fromInlineSave) return null;
         const current = assignmentPanel();
         if (!current || !markup) return null;
         if (lotAssignmentActive) exitLotAssignmentMode(true);
@@ -3923,7 +3980,9 @@ document.addEventListener('DOMContentLoaded', function () {
         template.innerHTML = String(markup).trim();
         const next = template.content.querySelector('#receivingSavedLots');
         if (!next) return null;
+        current.querySelectorAll('.flatpickr-date').forEach(input => input._flatpickr?.destroy());
         current.replaceWith(next);
+        bindInlineLotElements();
         bindReceivingPanelElements();
         receivingDraftRevision = receivingLotPicker
             ? parseInt(receivingLotPicker.dataset.draftRevision || '0', 10) || 0
@@ -3945,7 +4004,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const isExpired = row.dataset.receivingLotExpired === 'true';
             const expiredConfirmed = isExpired
                 && receivingExpiredLotConfirmedId === row.dataset.receivingLotId;
-            const state = row.querySelector('[data-receiving-lot-checkin-state]');
+            const state = row.closest('.receiving-lot-list-item')?.querySelector('[data-receiving-lot-checkin-state]');
             row.classList.toggle('is-selected', selected);
             row.setAttribute('aria-pressed', selected ? 'true' : 'false');
             row.setAttribute(
@@ -3957,13 +4016,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 + (isExpired ? ' — expired lot confirmation required' : '');
             if (state) {
                 state.classList.toggle('is-expired', isExpired);
-                state.textContent = isExpired
-                    ? (selected
-                        ? (expiredConfirmed
-                            ? 'Selected for check-in · Expired'
-                            : 'Selected · Confirm before receiving')
-                        : 'Expired · Select with confirmation')
-                    : (selected ? 'Selected for check-in' : 'Select for check-in');
+                state.hidden = !selected && !isExpired;
+                state.textContent = selected ? ('Selected' + (isExpired ? ' · Expired' : '')) : (isExpired ? 'Expired' : '');
             }
         });
     }
@@ -4045,11 +4099,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     window.renderReceivingLotList = renderReceivingLotList;
 
-    function syncReceivingLotOptionsFromPage(page) {
+    function syncReceivingLotOptionsFromPage(page, fromInlineSave) {
         if (!page) return;
         const nextPanel = page.getElementById('receivingSavedLots');
         if (nextPanel && assignmentPanel()) {
-            const refreshed = replaceReceivingLotsPanel(nextPanel.outerHTML);
+            const refreshed = replaceReceivingLotsPanel(nextPanel.outerHTML, fromInlineSave);
             if (refreshed && window.flashCheckinUpdateTargets) {
                 window.flashCheckinUpdateTargets([refreshed]);
             }
@@ -4258,7 +4312,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     ? (receivingExpiredConfirmationValue()
                         ? 'Expired lot selected. New units received here will immediately be treated as expired.'
                         : 'Expired lot selected. Confirm before scanning or receiving into it.')
-                    : 'Selected lot will be used for + Receive, exact increases, and repeat scans.';
+                    : 'Selected lot is used for +1, exact increases and repeat scans.';
             }
         } else {
             if (lastSavedReceivingLotId) {
@@ -4781,6 +4835,7 @@ document.addEventListener('DOMContentLoaded', function () {
     };
 
     document.addEventListener('click', async function(event) {
+        if (window.isCheckinInlineEditing()) return;
         const assignmentQuantity = event.target.closest('[data-lot-assignment-quantity]');
         if (assignmentQuantity && lotAssignmentActive && !assignmentQuantity.disabled) {
             event.preventDefault();
@@ -4935,7 +4990,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (inlineForm) {
         inlineForm.addEventListener('submit', function(event) {
             event.preventDefault();
-            if (lotAssignmentActive) return;
+            if (lotAssignmentActive || !window.isCheckinInlineEditing()) return;
             if (inlineForm.dataset.saving === 'true') return;
             if (
                 inlineStockChangedOutsideLots &&
@@ -4946,7 +5001,11 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             var submitter = event.submitter || document.querySelector('[type="submit"][form="inlineEditForm"]');
             var payload = new FormData(inlineForm);
+            const savingControls = inlineControls(inlineForm).map(control => ({control, disabled: control.disabled}));
+            savingControls.forEach(state => { state.control.disabled = true; });
             inlineForm.dataset.saving = 'true';
+            document.getElementById('cancelInlineEdit').disabled = true;
+            if (submitter) submitter.disabled = true;
             inlineForm.classList.add('is-seamless-saving');
             inlineForm.setAttribute('aria-busy', 'true');
             if (submitter) {
@@ -4981,9 +5040,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
                 throw new Error('The product update was not accepted.');
             }).catch(function(error) {
+                inlineErrorSummary.hidden = false;
+                inlineErrorSummary.textContent = error.message || 'Could not update the product.';
                 if (window.showToast) window.showToast(error.message || 'Could not update the product.', 'error');
             }).finally(function() {
                 delete inlineForm.dataset.saving;
+                savingControls.forEach(state => { state.control.disabled = state.disabled; });
+                document.getElementById('cancelInlineEdit').disabled = false;
+                if (submitter) submitter.disabled = false;
                 inlineForm.classList.remove('is-seamless-saving');
                 inlineForm.removeAttribute('aria-busy');
                 if (submitter) {
@@ -4994,6 +5058,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    if (productCard?.dataset.inlineErrors === 'true') {
+        productCard.classList.add('is-editing');
+        setProductDetailsOpen(true);
+        editActions.style.display = 'flex'; editBtn.style.display = 'none';
+        inlineSavedPayload = '';
+        setInlinePaused(true); refreshInlineLotStock();
+        applyInlineErrors(inlineForm);
+    }
     // --- 5. STOCK LOG SLIDER → shared static/js/stock_log.js ---
     // The slider itself is driven by the shared script; here we only bridge its
     // open/close events to the barcode auto-scanner so scanning pauses while the
@@ -5364,8 +5436,12 @@ window.renderCheckinProductMovementChart();
     return true;
   }
 
+  window.cancelCheckinFragmentRefresh = function () {
+    fragmentSequence += 1;
+    if (fragmentRequest) fragmentRequest.abort();
+  };
   window.refreshCheckinFragments = function (url) {
-    if (!url) return Promise.resolve();
+    if (!url || window.isCheckinInlineEditing?.()) return Promise.resolve();
     fragmentSequence += 1;
     var sequence = fragmentSequence;
     if (fragmentRequest) fragmentRequest.abort();
@@ -5380,7 +5456,7 @@ window.renderCheckinProductMovementChart();
       return response.json();
     })
     .then(function (data) {
-      if (sequence !== fragmentSequence || !data.ok) return;
+      if (sequence !== fragmentSequence || !data.ok || window.isCheckinInlineEditing?.()) return;
       var refreshedTargets = [];
 
       if (data.lot_rows_html !== undefined && window.refreshCheckinInlineLotRows) {
@@ -5459,6 +5535,7 @@ window.renderCheckinProductMovementChart();
   };
 
   function submitInPlace(stockForm) {
+    if (window.isCheckinInlineEditing?.()) return Promise.resolve(false);
     if (stockForm.dataset.saving === 'true') return Promise.resolve(false);
     if (
       window.isLotAssignmentModeActive
@@ -5620,6 +5697,7 @@ window.renderCheckinProductMovementChart();
   window.submitCheckinMutation = submitInPlace;
 
   function startEdit() {
+    if (window.isCheckinInlineEditing?.() || window.isReceivingActionLocked?.()) return;
     if (window.isLotAssignmentModeActive && window.isLotAssignmentModeActive()) return;
     input.value = (val.textContent || '').replace(/[^\d]/g, '') || '0';
     val.style.display = 'none';
@@ -5632,6 +5710,7 @@ window.renderCheckinProductMovementChart();
     val.style.display = '';
   }
   val.addEventListener('dblclick', startEdit);
+  document.getElementById('setExactStockButton')?.addEventListener('click', startEdit);
   input.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
   });
@@ -5656,4 +5735,5 @@ window.renderCheckinProductMovementChart();
   });
 })();
 </script>
+<script src="{% static 'js/checkin-workspace.js' %}"></script>
 {% endblock %}

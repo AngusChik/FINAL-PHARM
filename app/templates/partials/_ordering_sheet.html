@@ -1,3 +1,4 @@
+{% load static %}
 {% comment %}
 Ordering-sheet body — shared by the full page (ordering_sheet.html, inside
 base.html) and the dashboard modal (ordering_sheet_embed.html, in an iframe).
@@ -663,31 +664,30 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     .active-table th.os-sortable .sort-ind { font-size: 0.85em; color: var(--primary); }
 </style>
 
+<link rel="stylesheet" href="{% static 'css/ordering-sheet.css' %}?v=20261019-sheet1">
+<div id="os-workspace">
 <h1 class="ui-sr-only">Ordering Sheet</h1>
-
-{% if gsheet_enabled %}
-<!-- The page header is intentionally omitted; keep Google-Sheet controls available. -->
-<div class="os-embed-gsheet">
-    <form method="POST" action="" style="margin:0;">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="sync_gsheet">
-        <button type="submit" class="os-embed-pull-btn" title="Pull new entries from the Google Sheet now">&#10227; Pull from Google Sheet</button>
-    </form>
-    <span class="os-embed-gsheet-note">
-      {% if gsheet_pull_due %}automatic pull due now
-      {% elif gsheet_next_pull %}auto {{ gsheet_next_pull|date:'D g:i A' }}
-      {% elif gsheet_last_sync %}last pulled {{ gsheet_last_sync }}
-      {% else %}automatic pull enabled{% endif %}
-      {% if gsheet_last_status == 'error' %} · last failed{% elif gsheet_last_status == 'skipped' %} · last skipped{% endif %}
-    </span>
-</div>
-{% endif %}
 
 <!-- ══════════════ ADD ROW ══════════════ -->
 <div class="d-card">
     <div class="os-add-header">
         <div class="os-add-title-group">
             <h2 id="os-add-title">Add to Ordering Sheet</h2>
+        </div>
+        {% if gsheet_enabled %}
+        <div class="os-embed-gsheet">
+            <form method="POST" action="">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="sync_gsheet">
+                <button type="submit" class="os-embed-pull-btn" {% if not can_administer %}disabled title="Staff or passkey access is required to pull entries"{% else %}title="Pull new entries from Google Sheets now"{% endif %}>&#10227; Pull from Google Sheets</button>
+            </form>
+            <span class="os-embed-gsheet-note" {% if gsheet_pull_due %}title="Automatic pull due now"{% elif gsheet_next_pull %}title="Next automatic pull: {{ gsheet_next_pull|date:'d/m/Y, H:i' }}"{% endif %}>
+                Last pulled: <span id="os-last-pulled">{{ gsheet_last_sync|default:"Never pulled" }}</span>
+                {% if gsheet_last_status == 'error' %}<span class="os-sync-warning" title="{{ gsheet_last_summary }}"> · Last attempt failed</span>{% elif gsheet_last_status == 'skipped' %}<span class="os-sync-warning" title="{{ gsheet_last_summary }}"> · Last attempt skipped</span>{% endif %}
+            </span>
+        </div>
+        {% endif %}
+        <div class="os-add-header-actions">
             <button type="button" class="os-legend-trigger" id="os-legend-trigger" aria-label="Show color meanings" title="Color meanings" aria-haspopup="dialog" aria-controls="os-color-legend">
                 <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
                     <rect x="2" y="2" width="8" height="8" rx="2" fill="#ffff00" stroke="#a16207"/>
@@ -696,14 +696,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     <rect x="14" y="14" width="8" height="8" rx="2" fill="#fca5a5" stroke="#dc2626"/>
                 </svg>
             </button>
-        </div>
         <div class="os-mode-switch" role="group" aria-label="Switch between drugs and OTC products">
-            <span class="os-mode-label" data-mode="drug">Drugs</span>
-            <label class="os-toggle" title="Switch between drugs and OTC products">
-                <input type="checkbox" id="os-mode-toggle" aria-label="Show OTC product form" {% if otc_form.errors %}checked{% endif %}>
-                <span class="os-toggle-track"><span class="os-toggle-thumb"></span></span>
-            </label>
-            <span class="os-mode-label" data-mode="otc">OTC Products</span>
+            <input type="checkbox" id="os-mode-toggle" aria-label="Show OTC product form" {% if otc_form.errors %}checked{% endif %} hidden>
+            <button type="button" class="os-mode-label" data-mode="drug" aria-pressed="true">Drugs</button>
+            <button type="button" class="os-mode-label" data-mode="otc" aria-pressed="false">OTC Products</button>
+        </div>
+        <span class="os-account-badge">{% if request.user.is_staff %}Staff account{% else %}PU account{% endif %}</span>
         </div>
     </div>
 
@@ -720,11 +718,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 {{ form.patient_name.errors }}
             </div>
             <div class="form-group">
-                <label for="{{ form.name.id_for_label }}">Drug Name</label>
-                {{ form.name }}
-                {{ form.name.errors }}
-            </div>
-            <div class="form-group">
                 <label for="{{ form.reasoning.id_for_label }}">Reasoning</label>
                 {{ form.reasoning }}
                 {{ form.reasoning.errors }}
@@ -733,6 +726,11 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 <label for="{{ form.urgency.id_for_label }}">Urgency</label>
                 {{ form.urgency }}
                 {{ form.urgency.errors }}
+            </div>
+            <div class="form-group os-drug-input-group">
+                <label for="{{ form.name.id_for_label }}">Drug Name</label>
+                {{ form.name }}
+                {{ form.name.errors }}
             </div>
             <div class="form-group" style="flex:0.7; min-width:120px;">
                 <label for="{{ form.quantity_needed.id_for_label }}">Quantity Needed</label>
@@ -799,20 +797,25 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 <span class="badge-count" id="os-count">{{ entries|length }}</span>
             </div>
         </div>
-        <div class="os-type-filter" role="group" aria-label="Filter by type">
-            <button type="button" class="os-filter-btn active" data-filter="all">All</button>
-            <button type="button" class="os-filter-btn" data-filter="drug">Drugs</button>
-            <button type="button" class="os-filter-btn" data-filter="otc">OTC</button>
+        <div class="os-filter-field">
+            <label for="os-type-filter">Type</label>
+            <select id="os-type-filter" class="os-filter-select" aria-label="Filter by type">
+                <option value="all">All types</option>
+                <option value="drug">Drugs</option>
+                <option value="otc">OTC</option>
+            </select>
         </div>
-        <div class="os-insights" role="group" aria-label="Filter by status">
-            <button type="button" class="os-stat active" data-status="all" title="Show all items">All <span class="os-stat-n" data-count="all">0</span></button>
-            <button type="button" class="os-stat os-stat-pending" data-status="pending" title="Not yet actioned — still needs ordering">Pending <span class="os-stat-n" data-count="pending">0</span></button>
-            <button type="button" class="os-stat os-stat-ordered" data-status="ordered" title="Already ordered">Ordered <span class="os-stat-n" data-count="ordered">0</span></button>
-            <button type="button" class="os-stat os-stat-backordered" data-status="backordered" title="Back-ordered by the supplier">Back-Ordered <span class="os-stat-n" data-count="backordered">0</span></button>
-            <button type="button" class="os-stat os-stat-nfs" data-status="not_for_sale" title="Not for sale — consult pharmacist">Not for Sale <span class="os-stat-n" data-count="not_for_sale">0</span></button>
-            <span class="os-insights-sep"></span>
-            <button type="button" class="os-urg-flag" id="os-high-flag" title="High-urgency items still pending — click to isolate">&#128308; <b id="os-high-n">0</b> high urgency</button>
+        <div class="os-filter-field">
+            <label for="os-status-filter">Status</label>
+            <select id="os-status-filter" class="os-filter-select" aria-label="Filter by status">
+                <option value="all" data-label="All statuses">All statuses ({{ entries|length }})</option>
+                <option value="pending" data-label="Pending">Pending (0)</option>
+                <option value="ordered" data-label="Ordered">Ordered (0)</option>
+                <option value="backordered" data-label="Back-Ordered">Back-Ordered (0)</option>
+                <option value="not_for_sale" data-label="Not for Sale">Not for Sale (0)</option>
+            </select>
         </div>
+        <button type="button" class="os-urg-flag" id="os-high-flag" aria-pressed="false" title="Show high-urgency items; the count shows those still pending"><span class="os-urgency-meter os-urgency-meter--high" aria-hidden="true"><span></span><span></span><span></span></span> High urgency <b id="os-high-n">0</b></button>
         <div class="os-search-tools">
             <label class="ui-sr-only" for="os-search">Search ordering entries</label>
             <input type="text" id="os-search" class="table-search" placeholder="Search name, patient, initials…  ( / )" autocomplete="off">
@@ -827,8 +830,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 <tr>
                     <th class="os-check-col" data-column-label="Select">{% if can_delete_entries %}<input type="checkbox" class="os-check" id="os-select-all" aria-label="Select all visible ordering entries">{% endif %}</th>
                     <th class="os-patient-col">Patient</th>
-                    <th class="os-sortable os-name-col"><button type="button" class="os-sort-button" aria-label="Sort by drug name">Drug Name<span class="sort-ind" aria-hidden="true"></span></button></th>
-                    <th class="os-sortable os-reason-col"><button type="button" class="os-sort-button" aria-label="Sort by reasoning">Reasoning<span class="sort-ind" aria-hidden="true"></span></button></th>
+                    <th class="os-sortable os-reason-col" data-column-key="reasoning"><button type="button" class="os-sort-button" aria-label="Sort by reasoning">Reasoning<span class="sort-ind" aria-hidden="true"></span></button></th>
+                    <th class="os-sortable os-name-col" data-column-key="drug-name"><button type="button" class="os-sort-button" aria-label="Sort by drug name">Drug Name<span class="sort-ind" aria-hidden="true"></span></button></th>
                     <th class="os-qty-needed-col" data-column-key="qty-needed" data-column-label="Needed">Needed</th>
                     <th class="os-qty-remaining-col" data-column-key="qty-remaining" data-column-label="Remaining">Remaining</th>
                     <th class="os-sortable os-initial-date-col" data-column-key="initial-date" data-column-label="Initial - Date">
@@ -849,6 +852,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                     data-initials="{{ entry.initials }}" data-side="{{ entry.side }}" data-phone="{{ entry.phone_number }}">
                     <td class="os-check-col">{% if can_delete_entries %}<input type="checkbox" class="os-check os-row-check" value="{{ entry.pk }}" aria-label="Select {{ entry.name }}">{% endif %}</td>
                     <td class="os-patient-col">{{ entry.patient_name|default:"—" }}{% if entry.entry_type == 'otc' and entry.phone_number %}<div class="os-note">&#128222; {{ entry.phone_number }}</div>{% endif %}</td>
+                    <td class="os-reason-col">{% if entry.entry_type == 'otc' %}<span class="os-reason-text" title="OTC{% if entry.side %} · {{ entry.get_side_display }}{% endif %}">OTC{% if entry.side %} &middot; {{ entry.get_side_display }}{% endif %}</span>{% elif entry.reasoning %}<span class="os-reason-text" title="{{ entry.get_reasoning_display }}">{{ entry.get_reasoning_display }}</span>{% else %}<span class="os-reason-text is-empty">—</span>{% endif %}</td>
                     <td class="name-cell os-name-col" data-sort="{{ entry.name }}">
                         <span class="os-name-line">
                             {% if entry.source == 'gsheet' %}<span class="os-google-source" role="img" aria-label="Added via Google Sheet" title="Added via Google Sheet"><svg viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M17.64 9.205c0-.638-.057-1.252-.164-1.841H9v3.482h4.844a4.14 4.14 0 0 1-1.796 2.716v2.258h2.909c1.702-1.567 2.683-3.875 2.683-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.468-.806 5.957-2.18l-2.909-2.258c-.806.54-1.835.859-3.048.859-2.344 0-4.328-1.585-5.037-3.714H.956v2.332A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.963 10.707A5.41 5.41 0 0 1 3.682 9c0-.592.102-1.168.281-1.707V4.961H.956A9 9 0 0 0 0 9c0 1.592.414 3.098 1.142 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.579c1.321 0 2.507.454 3.441 1.346l2.581-2.582C13.464.892 11.425 0 9 0A9 9 0 0 0 .956 4.961l3.007 2.332C4.672 5.164 6.656 3.579 9 3.579z"/></svg></span>{% endif %}
@@ -856,7 +860,6 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                             <span class="os-drug-name" title="{{ entry.name }}">{{ entry.name }}</span>
                         </span>
                     </td>
-                    <td class="os-reason-col">{% if entry.entry_type == 'otc' %}<span class="os-reason-text" title="OTC{% if entry.side %} · {{ entry.get_side_display }}{% endif %}">OTC{% if entry.side %} &middot; {{ entry.get_side_display }}{% endif %}</span>{% elif entry.reasoning %}<span class="os-reason-text" title="{{ entry.get_reasoning_display }}">{{ entry.get_reasoning_display }}</span>{% else %}<span class="os-reason-text is-empty">—</span>{% endif %}</td>
                     <td class="os-qty-needed-col">{% if entry.entry_type == 'otc' %}—{% else %}{{ entry.quantity_needed|default:"—" }}{% endif %}</td>
                     <td class="os-qty-remaining-col">{% if entry.is_out %}<span class="pill qty-out">{{ entry.quantity_remaining|default:"0" }} · OUT</span>{% elif entry.is_low %}<span class="pill qty-low">{{ entry.quantity_remaining }} · LOW</span>{% else %}{{ entry.quantity_remaining|default:"—" }}{% endif %}</td>
                     <td class="os-initial-date-col" data-sort="{{ entry.created_at|date:'Ymd' }}"><span class="os-initial-date"><span class="os-initials">{{ entry.initials }}</span><span class="os-initial-date-separator" aria-hidden="true">-</span><span class="os-time">{{ entry.created_at|date:"d/m/Y" }}</span></span></td>
@@ -892,7 +895,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                                 </button>
                                 {% if can_delete_entries %}
-                                <form method="POST" action="" class="inline-form" data-seamless data-seamless-refresh="#os-tbody">
+                                <form method="POST" action="" class="inline-form os-delete-form">
                                     {% csrf_token %}
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="entry_id" value="{{ entry.pk }}">
@@ -927,8 +930,12 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                         </form>
                         <span class="os-custom-status-feedback" id="os-custom-status-feedback-{{ entry.pk }}" role="status" aria-live="polite" hidden></span>
                         {% endif %}
-                        {% if entry.order_note %}<div class="os-note" title="{{ entry.order_note }}">&#128221; {{ entry.order_note }}</div>{% endif %}
-                        {% with latest=entry.status_events.all.0 %}{% if latest %}<div class="os-status-updated">Updated {{ latest.created_at|date:"M d, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</div>{% endif %}{% endwith %}
+                        {% with latest=entry.status_events.all.0 %}
+                        <div class="os-row-meta" title="{% if entry.order_note %}{{ entry.order_note }}{% if latest %} · {% endif %}{% endif %}{% if latest %}Updated {{ latest.created_at|date:'d M, H:i' }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}{% endif %}">
+                            {% if entry.order_note %}<span class="os-note" title="{{ entry.order_note }}">{{ entry.order_note }}</span>{% endif %}
+                            {% if latest %}<span class="os-status-updated">Updated {{ latest.created_at|date:"d M, H:i" }}{% if latest.changed_by %} by {{ latest.changed_by.get_username }}{% endif %}</span>{% endif %}
+                        </div>
+                        {% endwith %}
                         <form method="POST" action="" class="os-note-form" style="display:none;" data-seamless data-seamless-refresh="#os-tbody">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="update_note">
@@ -1014,12 +1021,14 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
                 </div>
             </div>
             <div class="os-edit-footer">
-                <button type="button" class="os-edit-cancel" id="os-edit-cancel">Cancel</button>
+                <button type="button" class="os-edit-cancel" id="os-edit-cancel" data-ui-popup-close>Cancel</button>
                 <button type="submit" class="os-edit-save">Save Changes</button>
             </div>
         </form>
     </div>
 </div>
+
+</div><!-- /os-workspace -->
 
 <script>
 (function () {
@@ -1060,8 +1069,15 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             if (addTitle) addTitle.textContent = otc ? 'Add OTC Product' : 'Add to Ordering Sheet';
             modeLabels.forEach(function (lbl) {
                 lbl.classList.toggle('active', lbl.dataset.mode === (otc ? 'otc' : 'drug'));
+                lbl.setAttribute('aria-pressed', lbl.dataset.mode === (otc ? 'otc' : 'drug') ? 'true' : 'false');
             });
         }
+        modeLabels.forEach(function (button) {
+            button.addEventListener('click', function () {
+                modeToggle.checked = button.dataset.mode === 'otc';
+                modeToggle.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+        });
         modeToggle.addEventListener('change', applyMode);
         applyMode();
     }
@@ -1114,8 +1130,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     // ── Combined filtering: text search + type + status + urgency ──
     var search = document.getElementById('os-search');
     var countBadge = document.getElementById('os-count');
-    var filterBtns = document.querySelectorAll('.os-filter-btn');
-    var statBtns = document.querySelectorAll('.os-stat');
+    var typeFilter = document.getElementById('os-type-filter');
+    var statusFilter = document.getElementById('os-status-filter');
     var highFlag = document.getElementById('os-high-flag');
     var clearBtn = document.getElementById('os-clear-filters');
     var nomatchEl = document.getElementById('os-nomatch');
@@ -1135,9 +1151,9 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         savedTableState = {};
     }
 
-    function choiceExists(nodes, attribute, value) {
-        return Array.prototype.some.call(nodes, function (node) {
-            return node.getAttribute(attribute) === value;
+    function choiceExists(select, value) {
+        return !!select && Array.prototype.some.call(select.options, function (option) {
+            return option.value === value;
         });
     }
 
@@ -1148,16 +1164,15 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     var activeSortIndex = null;
     var activeSortDirection = null;
 
-    if (!choiceExists(filterBtns, 'data-filter', activeType)) activeType = 'all';
-    if (!choiceExists(statBtns, 'data-status', activeStatus)) activeStatus = 'all';
+    if (!choiceExists(typeFilter, activeType)) activeType = 'all';
+    if (!choiceExists(statusFilter, activeStatus)) activeStatus = 'all';
     if (search && typeof savedTableState.search === 'string') search.value = savedTableState.search;
-    filterBtns.forEach(function (button) {
-        button.classList.toggle('active', button.dataset.filter === activeType);
-    });
-    statBtns.forEach(function (button) {
-        button.classList.toggle('active', button.dataset.status === activeStatus);
-    });
-    if (highFlag) highFlag.classList.toggle('active', urgencyOnly);
+    if (typeFilter) typeFilter.value = activeType;
+    if (statusFilter) statusFilter.value = activeStatus;
+    if (highFlag) {
+        highFlag.classList.toggle('active', urgencyOnly);
+        highFlag.setAttribute('aria-pressed', urgencyOnly ? 'true' : 'false');
+    }
 
     function persistTableState() {
         try {
@@ -1227,7 +1242,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         applyCurrentSort(true);
     }
 
-    // Fill the status-count chips + high-urgency flag from the rendered rows.
+    // Update option labels without replacing either select or its current value.
     function refreshCounts() {
         var counts = { all: 0, pending: 0, ordered: 0, backordered: 0, not_for_sale: 0 };
         var highPending = 0;
@@ -1237,9 +1252,8 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             if (counts[st] != null) counts[st]++;
             if (row.dataset.urgency === 'high' && st === 'pending') highPending++;
         });
-        document.querySelectorAll('.os-stat-n').forEach(function (el) {
-            var k = el.getAttribute('data-count');
-            el.textContent = counts[k] != null ? counts[k] : 0;
+        if (statusFilter) Array.prototype.forEach.call(statusFilter.options, function (option) {
+            option.textContent = option.dataset.label + ' (' + (counts[option.value] || 0) + ')';
         });
         var highN = document.getElementById('os-high-n');
         if (highN) highN.textContent = highPending;
@@ -1275,7 +1289,7 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             if (tableEl) tableEl.style.display = 'none';
         } else {
             if (nomatchEl) nomatchEl.style.display = 'none';
-            if (tableEl && totalRows > 0) tableEl.style.display = '';
+            if (tableEl) tableEl.style.display = totalRows > 0 ? '' : 'none';
         }
         if (emptyEl) emptyEl.style.display = totalRows === 0 ? '' : 'none';
     }
@@ -1283,44 +1297,45 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
     function clearFilters() {
         activeType = 'all'; activeStatus = 'all'; urgencyOnly = false;
         if (search) search.value = '';
-        filterBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.filter === 'all'); });
-        statBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.status === 'all'); });
-        if (highFlag) highFlag.classList.remove('active');
+        if (typeFilter) typeFilter.value = 'all';
+        if (statusFilter) statusFilter.value = 'all';
+        if (highFlag) {
+            highFlag.classList.remove('active');
+            highFlag.setAttribute('aria-pressed', 'false');
+        }
         persistTableState();
         applyFilters();
+        updateOsSelection();
     }
 
     if (search) search.addEventListener('input', function () {
         persistTableState();
         applyFilters();
+        updateOsSelection();
     });
 
-    filterBtns.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            activeType = btn.dataset.filter;
-            filterBtns.forEach(function (b) { b.classList.toggle('active', b === btn); });
-            persistTableState();
-            applyFilters();
-        });
+    if (typeFilter) typeFilter.addEventListener('change', function () {
+        activeType = typeFilter.value;
+        persistTableState();
+        applyFilters();
+        updateOsSelection();
     });
 
-    statBtns.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            // Clicking the active non-"all" chip toggles back to All.
-            var next = (activeStatus === btn.dataset.status && btn.dataset.status !== 'all') ? 'all' : btn.dataset.status;
-            activeStatus = next;
-            statBtns.forEach(function (b) { b.classList.toggle('active', b.dataset.status === next); });
-            persistTableState();
-            applyFilters();
-        });
+    if (statusFilter) statusFilter.addEventListener('change', function () {
+        activeStatus = statusFilter.value;
+        persistTableState();
+        applyFilters();
+        updateOsSelection();
     });
 
     if (highFlag) {
         highFlag.addEventListener('click', function () {
             urgencyOnly = !urgencyOnly;
             highFlag.classList.toggle('active', urgencyOnly);
+            highFlag.setAttribute('aria-pressed', urgencyOnly ? 'true' : 'false');
             persistTableState();
             applyFilters();
+            updateOsSelection();
         });
     }
     if (clearBtn) clearBtn.addEventListener('click', clearFilters);
@@ -1493,11 +1508,19 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
             }
             var updated = row.querySelector('.os-status-updated');
             if (!updated) {
-                updated = document.createElement('div');
+                updated = document.createElement('span');
                 updated.className = 'os-status-updated';
-                row.querySelector('.os-actions-cell').appendChild(updated);
+                var metadata = row.querySelector('.os-row-meta');
+                if (!metadata) {
+                    metadata = document.createElement('div');
+                    metadata.className = 'os-row-meta';
+                    row.querySelector('.os-actions-cell').appendChild(metadata);
+                }
+                metadata.appendChild(updated);
             }
             updated.textContent = data.updated_text;
+            var rowMetadata = row.querySelector('.os-row-meta');
+            if (rowMetadata) rowMetadata.title = [row.dataset.note, data.updated_text].filter(Boolean).join(' · ');
             customStatusFeedback(row, 'Saved', false);
             window.setTimeout(function () {
                 if (row.isConnected && form.dataset.customSaving !== 'true' && form.hidden) {
@@ -1679,42 +1702,120 @@ Forms post to "" (the current URL) so embed mode is preserved across redirects.
         if (e.key === 'Escape' && editOverlay && editOverlay.classList.contains('active')) closeEditModal();
     });
 
-    // Shared in-page confirmation remains reliable on kiosk/tablet browsers,
-    // where native browser prompts can be suppressed.
-    function osConfirm(message, onYes) {
-        window.uiConfirm({
-            title: 'Move ordering entries to Recovery',
-            message: message,
-            confirmLabel: 'Move to Recovery',
-            tone: 'danger'
-        }).then(function (accepted) { if (accepted) onYes(); });
+    // ── Targeted deletion: never replace the tbody or navigate the page ──
+    var pendingDeleteIds = new Set();
+    var bulkConfirmationPending = false;
+
+    function deleteNotice(message, isError) {
+        if (window.showToast) window.showToast(message, isError ? 'error' : 'success');
     }
 
-    // Single-row delete submits immediately (no confirmation) — the trash icon
-    // just removes the row. Deletes are a restorable soft-delete, and shared
-    // scroll handling preserves the location if an action reloads this page.
+    function removeOrderingRows(ids, payload, form) {
+        ids = ids.map(String);
+        if (!ids.length || ids.some(function (id) { return pendingDeleteIds.has(id); })) return;
+        ids.forEach(function (id) { pendingDeleteIds.add(id); });
+        var buttons = [];
+        allRows().forEach(function (row) {
+            if (ids.indexOf(row.dataset.entryId) === -1) return;
+            var button = row.querySelector('.os-delete-form button');
+            if (button) {
+                buttons.push(button);
+                button.disabled = true;
+                button.setAttribute('aria-busy', 'true');
+            }
+        });
+        if (osBulkBtn) osBulkBtn.disabled = true;
+        return fetch(form ? (form.getAttribute('action') || window.location.href) : window.location.href, {
+            method: 'POST', body: payload, credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-Ordering-Delete': '1', 'Accept': 'application/json' }
+        }).then(function (response) {
+            if (response.redirected || !(response.headers.get('content-type') || '').includes('application/json')) {
+                throw new Error('Your session may have expired. Refresh the page before trying again.');
+            }
+            return response.json().then(function (data) {
+                if (!response.ok || !data.ok) throw new Error(data.error || 'Could not delete the entry. Try again.');
+                if (!Array.isArray(data.deleted_ids) || !data.deleted_ids.length ||
+                    data.deleted_ids.some(function (id) { return ids.indexOf(String(id)) === -1; })) {
+                    throw new Error('The deletion could not be confirmed. Try again.');
+                }
+                return data;
+            });
+        }).then(function (data) {
+            // Capture at completion, not click time: the user may have scrolled
+            // or started another draft while the request was in flight.
+            var scroll = { x: window.scrollX, y: window.scrollY,
+                top: tableWrap ? tableWrap.scrollTop : 0, left: tableWrap ? tableWrap.scrollLeft : 0 };
+            var removed = new Set(data.deleted_ids.map(String));
+            var focused = document.activeElement;
+            var focusedRow = focused && focused.closest('#os-tbody tr');
+            var needsFocus = focusedRow && removed.has(focusedRow.dataset.entryId);
+            var nextFocus = null;
+            if (needsFocus) {
+                var visible = Array.prototype.filter.call(allRows(), function (row) { return row.style.display !== 'none'; });
+                var position = visible.indexOf(focusedRow);
+                var neighbor = visible.slice(position + 1).concat(visible.slice(0, position).reverse()).find(function (row) {
+                    return !removed.has(row.dataset.entryId);
+                });
+                nextFocus = neighbor ? neighbor.querySelector('.os-delete-form button') : tableWrap;
+            }
+            allRows().forEach(function (row) {
+                if (removed.has(row.dataset.entryId)) row.remove();
+            });
+            osLastChecked = null;
+            totalRows = allRows().length;
+            refreshCounts();
+            // Surviving DOM nodes stay in their existing sorted order. In
+            // particular, do not close custom editors or reset other drafts.
+            applyFilters();
+            updateOsSelection();
+            if (nextFocus) nextFocus.focus({ preventScroll: true });
+            if (tableWrap) {
+                tableWrap.scrollTop = scroll.top;
+                tableWrap.scrollLeft = scroll.left;
+            }
+            window.scrollTo(scroll.x, scroll.y);
+            deleteNotice(data.message || 'Entry moved to Recovery.', false);
+        }).catch(function (error) {
+            deleteNotice(error.message || 'Could not delete the entry. Try again.', true);
+        }).finally(function () {
+            ids.forEach(function (id) { pendingDeleteIds.delete(id); });
+            buttons.forEach(function (button) {
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+            });
+            if (osBulkBtn) osBulkBtn.disabled = pendingDeleteIds.size > 0;
+        });
+    }
+
+    if (osTbody) osTbody.addEventListener('submit', function (event) {
+        var form = event.target;
+        if (!form.classList.contains('os-delete-form')) return;
+        event.preventDefault();
+        var id = form.querySelector('input[name="entry_id"]').value;
+        removeOrderingRows([id], new FormData(form), form);
+    });
 
     if (osBulkBtn) {
         osBulkBtn.addEventListener('click', function () {
+            if (bulkConfirmationPending || pendingDeleteIds.size) return;
             var ids = Array.prototype.map.call(
                 document.querySelectorAll('#os-tbody .os-row-check:checked'),
                 function (cb) { return cb.value; });
             if (!ids.length) return;
-            osConfirm('Move ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' to Recovery?', function () {
-                var f = document.createElement('form');
-                f.method = 'POST';
-                f.action = '';
-                f.setAttribute('data-seamless', '');
-                f.setAttribute('data-seamless-remove', 'true');
-                f.setAttribute('data-seamless-refresh', '#os-tbody');
+            bulkConfirmationPending = true;
+            window.uiConfirm({
+                title: 'Move ordering entries to Recovery',
+                message: 'Move ' + ids.length + ' entr' + (ids.length === 1 ? 'y' : 'ies') + ' to Recovery?',
+                confirmLabel: 'Move to Recovery', tone: 'danger'
+            }).then(function (accepted) {
+                if (!accepted) return;
                 var csrf = document.querySelector('#os-form input[name=csrfmiddlewaretoken]');
-                f.innerHTML =
-                    '<input type="hidden" name="csrfmiddlewaretoken" value="' + (csrf ? csrf.value : '') + '">' +
-                    '<input type="hidden" name="action" value="delete_selected">' +
-                    '<input type="hidden" name="entry_ids" value="' + ids.join(',') + '">';
-                document.body.appendChild(f);
-                f.requestSubmit();
-            });
+                var payload = new FormData();
+                payload.append('csrfmiddlewaretoken', csrf ? csrf.value : '');
+                payload.append('action', 'delete_selected');
+                payload.append('entry_ids', ids.join(','));
+                return removeOrderingRows(ids, payload, null);
+            }).finally(function () { bulkConfirmationPending = false; });
         });
     }
 

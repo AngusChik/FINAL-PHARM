@@ -1,0 +1,46 @@
+<li class="receiving-lot-list-item lot-editor-row"{% if lot.removed %} hidden data-lot-removed="true"{% endif %}
+    data-assignment-lot-id="{{ lot.lot_id|default:'' }}"
+    data-assignment-lot-name="{{ lot.view_number|default:'' }}"
+    data-assignment-lot-balance="{{ lot.view_quantity|default:0 }}"
+    data-assignment-lot-expiry="{{ lot.view_expiry|date:'Y-m-d' }}"
+    data-assignment-internal-main="{% if lot.is_unassigned_saved %}true{% else %}false{% endif %}">
+  <input form="inlineEditForm" type="hidden" name="lot_id" value="{{ lot.lot_id|default:'' }}">
+  <input form="inlineEditForm" type="hidden" name="lot_original_number" value="{{ lot.original_lot_number|default:'' }}">
+  <input form="inlineEditForm" type="hidden" name="lot_original_expiry" value="{{ lot.original_expiry_value|default:'' }}">
+  <input form="inlineEditForm" type="hidden" name="lot_original_quantity" value="{{ lot.original_quantity|default_if_none:0 }}">
+  <input form="inlineEditForm" type="hidden" name="lot_removed" value="{% if lot.removed %}1{% else %}0{% endif %}">
+  <div class="unified-lot-cells">
+    <button type="button" class="receiving-lot-row view-mode{% if selected_receiving_lot_id == lot.lot_id %} is-selected{% endif %}"
+      {% if lot.receivable and not session.inventory_mode %}
+      data-receiving-lot-id="{{ lot.lot_id }}" data-lot-display-name="{{ lot.view_number }}"
+      data-lot-quantity="{{ lot.view_quantity }}" data-receiving-lot-expired="{% if lot.is_expired %}true{% else %}false{% endif %}"
+      aria-pressed="{% if selected_receiving_lot_id == lot.lot_id %}true{% else %}false{% endif %}"
+      aria-label="{% if selected_receiving_lot_id == lot.lot_id %}Selected{% else %}Select{% endif %} {{ lot.view_number }} for check-in{% if lot.is_expired %}; expired lot confirmation required{% endif %}"
+      {% else %}disabled aria-disabled="true" aria-label="{% if session.inventory_mode %}System stock lot{% else %}UNASSIGNED stock — use Assign stock{% endif %}"{% endif %}>
+      <span class="receiving-selection-mark" aria-hidden="true"></span>
+    </button>
+    <div class="unified-lot-name">
+      <div class="view-mode receiving-lot-name-cell">
+        <strong class="receiving-lot-name">{{ lot.view_number }}</strong>
+        {% if lot.receivable %}<small class="receiving-lot-checkin-state{% if lot.is_expired %} is-expired{% endif %}" data-receiving-lot-checkin-state{% if not lot.is_expired and selected_receiving_lot_id != lot.lot_id %} hidden{% endif %}>{% if selected_receiving_lot_id == lot.lot_id %}Selected{% if lot.is_expired %} · Expired{% endif %}{% elif lot.is_expired %}Expired{% endif %}</small>
+        {% elif lot.is_unassigned_saved %}<small class="receiving-lot-checkin-state is-unavailable">Needs assignment</small>{% endif %}
+      </div>
+      <label class="edit-mode"><span class="unified-lot-mobile-label">Lot number</span><input form="inlineEditForm" type="text" name="lot_number" maxlength="64" value="{{ lot.lot_number|default:'' }}" placeholder="Lot number" aria-label="Lot number"></label>
+    </div>
+    <div class="unified-lot-expiry">
+      <span class="view-mode"><span class="unified-lot-mobile-label">Expiry</span><span class="receiving-lot-expiry">{% if lot.view_expiry %}{{ lot.view_expiry|date:'d-m-Y' }}{% else %}No expiry{% endif %}</span></span>
+      <label class="edit-mode"><span class="unified-lot-mobile-label">Expiry</span><input form="inlineEditForm" type="text" name="lot_expiry" class="flatpickr-date" value="{% if lot.expiry_date_raw %}{{ lot.expiry_date_raw }}{% elif lot.expiry_date %}{{ lot.expiry_date|date:'d-m-Y' }}{% endif %}" placeholder="DD-MM-YYYY" aria-label="Lot expiry date"></label>
+    </div>
+    <div class="unified-lot-units">
+      <span class="view-mode"><span class="unified-lot-mobile-label">Units</span><strong class="receiving-lot-stock">{{ lot.view_quantity|default:0 }}</strong></span>
+      <label class="edit-mode"><span class="unified-lot-mobile-label">Units</span><input form="inlineEditForm" type="number" name="lot_quantity" min="0" step="1" inputmode="numeric" value="{{ lot.quantity|default_if_none:'' }}" placeholder="0" aria-label="In this lot"></label>
+    </div>
+    <button type="button" class="lot-row-remove edit-mode" aria-label="Remove this lot">×</button>
+  </div>
+  {% if lot.lot_id and not session.inventory_mode %}
+  <div class="lot-assignment-row-controls" hidden>
+    <button type="button" class="lot-assignment-row-button" data-lot-assignment-choice="{{ lot.lot_id }}" aria-label="Use {{ lot.view_number }} as the assignment source or destination" aria-pressed="false">Assign</button>
+    <label class="lot-assignment-quantity"><span>Quantity</span><input type="number" min="1" max="{{ lot.view_quantity }}" inputmode="none" autocomplete="off" readonly disabled data-lot-assignment-quantity="{{ lot.lot_id }}" aria-expanded="false" aria-label="Quantity moving from {{ lot.view_number }}"><small>of {{ lot.view_quantity }}</small></label>
+  </div>
+  {% endif %}
+</li>

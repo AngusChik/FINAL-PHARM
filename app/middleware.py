@@ -63,7 +63,9 @@ class ConcurrentSessionMiddleware:
                 user_session = UserSession.objects.get(
                     session_key=request.session.session_key
                 )
-                if user_session.pu_slot is not None:
+                if request.session.get('device_type') != user_session.device_type:
+                    request.session['device_type'] = user_session.device_type
+                if user_session.pu_slot is not None and user_session.device_type != UserSession.DEVICE_PHONE:
                     if request.session.get('pu_slot') != user_session.pu_slot:
                         request.session['pu_slot'] = user_session.pu_slot
                 else:
@@ -96,8 +98,15 @@ class ConcurrentSessionMiddleware:
                     with transaction.atomic():
                         session_limits.take_global_lock()
                         session_limits.prune_stale()
+                        session_limits.release_phone_slots()
                         pu_slot = None
-                        if not request.user.is_staff:
+                        wants_phone = not request.user.is_staff and request.session.get('device_type') == UserSession.DEVICE_PHONE
+                        if wants_phone:
+                            if session_limits.active_phone_count() >= session_limits.phone_max():
+                                logout(request)
+                                messages.warning(request, 'Phone access is currently full.')
+                                return redirect('login')
+                        elif not request.user.is_staff:
                             if session_limits.active_pu_count() >= session_limits.pu_max():
                                 logout(request)
                                 messages.warning(
@@ -115,6 +124,7 @@ class ConcurrentSessionMiddleware:
                             session_key=request.session.session_key,
                             ip_address=ip,
                             user_agent=request.META.get('HTTP_USER_AGENT', '')[:300],
+                            device_type=UserSession.DEVICE_PHONE if wants_phone else UserSession.DEVICE_COMPUTER,
                             pu_slot=pu_slot,
                         )
                         if pu_slot is not None:

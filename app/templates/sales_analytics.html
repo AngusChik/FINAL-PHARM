@@ -3,6 +3,12 @@
 {% block title %}Sales Analytics{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="{% static 'css/product-details-search.css' %}">
+<style>
+  .sa-product-lookup { position: relative; width: 100%; max-width: 760px; margin: 1rem auto; }
+  .sa-product-lookup input { box-sizing: border-box; width: 100%; min-height: 48px; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-color); color: var(--text-main); font: inherit; }
+  .sa-product-lookup .product-details-search-results { width: 100%; max-height: 60vh; }
+</style>
 <style>
   /* Design tokens (--sa-*) come from static/css/tokens.css */
 
@@ -450,9 +456,10 @@
     }
   }
 </style>
-<link rel="stylesheet" href="{% static 'css/sales_analytics.css' %}">
+<link rel="stylesheet" href="{% static 'css/sales_analytics.css' %}?v=product-details-3">
 <link rel="stylesheet" href="{% static 'css/sales_suggestions.css' %}">
 
+{% if product %}{% include 'partials/_product_analysis_styles.html' %}{% endif %}
 <div class="sa-page">
 
   <!-- ── Header ── -->
@@ -526,7 +533,43 @@
       <a class="sa-tab" id="sa-tab-leaders" href="#sa-panel-leaders" data-sales-tab="leaders"><span class="sa-tab-label">Category Leaders</span><span class="sa-tab-meta">Top 5 per category</span></a>
       <a class="sa-tab" id="sa-tab-periods" href="#sa-panel-periods" data-sales-tab="periods"><span class="sa-tab-label">Period Breakdown</span><span class="sa-tab-meta">Detailed figures</span></a>
       <a class="sa-tab" id="sa-tab-suggestions" href="#sa-panel-suggestions" data-sales-tab="suggestions"><span class="sa-tab-label">Review Suggestions</span><span class="sa-tab-meta">Plan your next order</span></a>
+      <a class="sa-tab" id="sa-tab-details" href="#sa-panel-details" data-sales-tab="details"><span class="sa-tab-label">Product Details</span><span class="sa-tab-meta">Find a product</span></a>
     </nav>
+    <section class="sa-panel" id="sa-panel-details" aria-labelledby="sa-tab-details" tabindex="0">
+      <div class="sales-details-toolbar{% if product %} has-selection{% endif %}">
+      <div class="sa-product-lookup" id="productDetailsLookup"
+           data-sales-url="{% url 'sales_analytics' %}"
+           data-current-product-id="{{ product.product_id }}"
+           data-search-url="{% url 'global_search' %}"
+           data-details-url-template="{% url 'product_details' product_id=0 %}"
+           data-return-to="{{ request.get_full_path }}">
+        <label class="ui-sr-only" for="productDetailsSearch">Search products</label>
+        <input type="search" id="productDetailsSearch" placeholder="Search by product name, item number, or barcode…"
+               value="{{ product.name }}" autocomplete="off" role="combobox" aria-autocomplete="list"
+               aria-controls="productDetailsSearchResults" aria-expanded="false"
+               aria-describedby="productDetailsSearchHint" class="product-details-search-input">
+        <p id="productDetailsSearchHint" class="product-details-search-message{% if product %} ui-sr-only{% endif %}">Type at least 2 characters to find a product.</p>
+        <div id="productDetailsSearchPopover" class="product-details-search-results" hidden>
+          <div id="productDetailsSearchStatus" class="product-details-search-message" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+          <div id="productDetailsSearchResults" class="product-details-search-listbox" role="listbox" aria-label="Matching products" hidden></div>
+        </div>
+      </div>
+      {% if product %}
+      {% with start_date=analysis_start_date end_date=analysis_end_date %}
+        <div class="sales-analysis-tools">
+          {% include 'partials/_product_analysis_period.html' with sales_analysis=True return_to=request.GET.return_to %}
+          <a class="trend-edit-btn" href="{% url 'product_details' product.product_id %}?return_to={{ request.get_full_path|urlencode }}">Open Product Details</a>
+        </div>
+        {% endwith %}
+        {% endif %}
+      </div>
+      {% if product %}
+      <div class="product-details-page trend-page has-product sales-product-analysis">
+        {% if date_range_notice %}<p class="trend-range-note" role="status">{{ date_range_notice }}</p>{% endif %}
+        {% include 'partials/_product_analysis_content.html' %}
+      </div>
+      {% endif %}
+    </section>
     <section class="sa-panel" id="sa-panel-overview" aria-labelledby="sa-tab-overview" tabindex="0">
   <!-- ── Cost data warning ── -->
   {% if not has_cost_data %}
@@ -732,6 +775,7 @@
   </div>
 
 </div><!-- /sa-page -->
+{% include 'partials/_product_details_search_script.html' %}
 
 <!-- Data for charts -->
 {{ revenue_series|json_script:"revenue-series-data" }}
@@ -739,9 +783,13 @@
 {{ category_sales|json_script:"category-data" }}
 
 <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
-<script src="{% static 'js/sales_analytics.js' %}"></script>
+<script src="{% static 'js/sales_analytics.js' %}?v=product-details-3"></script>
 <script src="{% static 'js/sales_suggestions.js' %}"></script>
 <script src="{% static 'js/sales_analytics_charts.js' %}?v=20260925-type1"></script>
+{% if product %}
+{% include 'partials/_product_analysis_period_script.html' %}
+{% include 'partials/_product_analysis_chart_script.html' %}
+{% endif %}
 {% endblock %}
 
 {% block bottom_fixed %}

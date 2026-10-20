@@ -592,26 +592,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. FLATPICKR INITIALIZATION
     // ==========================================
     function initExpiryInput(input) {
-        flatpickr(input, {
-            dateFormat: "d-m-Y",
-            allowInput: true,
-            monthSelectorType: "static",
-            onClose: function(selectedDates, dateStr, instance) {
-                instance.input.value = dateStr.replace(/-+$/, '');
-                instance.input.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        });
-        input.addEventListener('input', function() {
-            let value = this.value.replace(/\D/g, '');
-            let formatted = '';
-            if (value.length > 0) {
-                formatted += value.substring(0, 2);
-                if (value.length > 2) formatted += '-' + value.substring(2, 4);
-                if (value.length > 4) formatted += '-' + value.substring(4, 8);
-            }
-            if (formatted.length > 10) formatted = formatted.substring(0, 10);
-            if (this.value !== formatted) this.value = formatted;
-        });
+        window.uiExpiryDates.init(input);
     }
 
     document.querySelectorAll('.flatpickr-date').forEach(initExpiryInput);

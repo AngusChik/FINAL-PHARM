@@ -41,8 +41,8 @@ function harness(saved = {}) {
     const row = node({ id, name, initials, entryType, status, urgency, patient: '', note: '', customStatus: '' });
     row.dataset.initialOrder = ['new', 'same-day-late', 'same-day-early', 'old'].indexOf(id);
     row.cells = Array.from({ length: 8 }, () => node());
-    row.cells[2].dataset.sort = name;
-    row.cells[3].textContent = reason;
+    row.cells[3].dataset.sort = name;
+    row.cells[2].textContent = reason;
     row.cells[6].dataset.sort = entryDate.replaceAll('-', '');
     row.cells[6].textContent = `${initials} - ${entryDate}`;
     return row;
@@ -58,20 +58,20 @@ function harness(saved = {}) {
   const headers = allHeaders.filter(header => header.sortable);
   const ids = {};
   for (const id of ['os-search', 'os-count', 'os-high-flag', 'os-high-n',
-    'os-clear-filters', 'os-nomatch', 'os-nomatch-clear', 'os-empty', 'os-table', 'os-tbody']) {
+    'os-clear-filters', 'os-nomatch', 'os-nomatch-clear', 'os-empty', 'os-table', 'os-tbody', 'os-type-filter', 'os-status-filter']) {
     ids[id] = node();
   }
   ids['os-table'].querySelectorAll = () => headers;
   ids['os-table'].querySelector = selector => selector === 'th[data-column-key="initial-date"]' ? allHeaders[6] : null;
   ids['os-tbody'].querySelectorAll = () => rows;
   ids['os-tbody'].appendChild = fragment => rows.splice(0, rows.length, ...fragment.children);
-  const typeButtons = ['all', 'drug', 'otc'].map(filter => node({ filter }));
-  const statusButtons = ['all', 'pending', 'ordered', 'backordered', 'not_for_sale'].map(status => node({ status }));
-  const counts = statusButtons.map(button => node({ count: button.dataset.status }));
-  const selectors = { '#os-tbody tr': rows, '.os-filter-btn': typeButtons, '.os-stat': statusButtons, '.os-stat-n': counts };
+  ids['os-type-filter'].options = ['all', 'drug', 'otc'].map(value => Object.assign(node(), { value }));
+  ids['os-status-filter'].options = ['all', 'pending', 'ordered', 'backordered', 'not_for_sale'].map(value => Object.assign(node({ label: value }), { value }));
+  const selectors = { '#os-tbody tr': rows };
   const storage = new Map([['orderingSheetTableState:v3:active', JSON.stringify(saved)]]);
   const context = {
     URLSearchParams,
+    updateOsSelection() {},
     sessionStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     window: { location: { search: '' }, listeners: {}, addEventListener(name, fn) { this.listeners[name] = fn; } },
     document: {
@@ -84,7 +84,7 @@ function harness(saved = {}) {
   vm.createContext(context);
   vm.runInContext(source, context);
   return {
-    context, rows, ids, headers, allHeaders, typeButtons, statusButtons,
+    context, rows, ids, headers, allHeaders,
     visible: () => rows.filter(row => row.style.display !== 'none').map(row => row.dataset.id),
     saved: () => JSON.parse(storage.get('orderingSheetTableState:v3:active')),
     sort(index) {
@@ -97,7 +97,7 @@ function harness(saved = {}) {
 test('only Drug Name, Reasoning and Initial - Date headers offer sorting', () => {
   const h = harness();
   assert.deepEqual(h.headers.map(header => header.cellIndex), [2, 3, 6]);
-  for (const [index, label] of [[2, 'drug name'], [3, 'reasoning'], [6, 'entry date']]) {
+  for (const [index, label] of [[2, 'reasoning'], [3, 'drug name'], [6, 'entry date']]) {
     assert.match(headerMarkup[index][2], new RegExp(`<button type="button" class="os-sort-button" aria-label="Sort by ${label}">`));
     assert.equal(typeof h.allHeaders[index].listeners.click, 'function');
   }
@@ -116,25 +116,25 @@ test('initial table order is newest date first with a descending date indicator'
 
 test('drug name sorts alphabetically both ways including names beginning with the same number', () => {
   const h = harness();
-  h.sort(2);
+  h.sort(3);
   assert.deepEqual(h.visible(), ['same-day-early', 'same-day-late', 'old', 'new']);
-  assert.equal(h.allHeaders[2].attributes['aria-sort'], 'ascending');
-  h.sort(2);
+  assert.equal(h.allHeaders[3].attributes['aria-sort'], 'ascending');
+  h.sort(3);
   assert.deepEqual(h.visible(), ['new', 'old', 'same-day-late', 'same-day-early']);
-  assert.equal(h.allHeaders[2].attributes['aria-sort'], 'descending');
+  assert.equal(h.allHeaders[3].attributes['aria-sort'], 'descending');
 });
 
 test('reasoning sorts both ways and changing column starts ascending', () => {
   const h = harness();
-  h.sort(2);
-  h.sort(2);
   h.sort(3);
+  h.sort(3);
+  h.sort(2);
   assert.deepEqual(h.visible(), ['same-day-late', 'new', 'old', 'same-day-early']);
-  assert.equal(h.allHeaders[3].attributes['aria-sort'], 'ascending');
-  assert.equal(h.allHeaders[2].attributes['aria-sort'], undefined);
-  h.sort(3);
+  assert.equal(h.allHeaders[2].attributes['aria-sort'], 'ascending');
+  assert.equal(h.allHeaders[3].attributes['aria-sort'], undefined);
+  h.sort(2);
   assert.deepEqual(h.visible(), ['same-day-early', 'new', 'old', 'same-day-late']);
-  assert.equal(h.allHeaders[3].attributes['aria-sort'], 'descending');
+  assert.equal(h.allHeaders[2].attributes['aria-sort'], 'descending');
 });
 
 test('date sorting ignores initials and preserves the original same-day order', () => {
@@ -199,9 +199,40 @@ test('an obsolete saved calendar filter never hides rows and is dropped on the n
 test('existing text, status, type and urgency filters still combine with header sorting', () => {
   const h = harness({ search: '5 ', type: 'drug', status: 'ordered', urgencyOnly: true, entryDate: '2026-01-01' });
   assert.deepEqual(h.visible(), ['same-day-late']);
-  h.sort(2);
+  h.sort(3);
   assert.deepEqual(h.visible(), ['same-day-late']);
   h.ids['os-clear-filters'].listeners.click();
   assert.deepEqual(h.visible(), ['same-day-early', 'same-day-late', 'old', 'new']);
-  assert.equal(h.allHeaders[2].attributes['aria-sort'], 'ascending');
+  assert.equal(h.allHeaders[3].attributes['aria-sort'], 'ascending');
+});
+
+test('dropdown filters retain their values and refresh counts without changing sorting', () => {
+  const h = harness({ type: 'otc', status: 'pending' });
+  assert.equal(h.ids['os-type-filter'].value, 'otc');
+  assert.equal(h.ids['os-status-filter'].value, 'pending');
+  assert.deepEqual(h.visible(), ['same-day-early']);
+  h.ids['os-type-filter'].value = 'drug';
+  h.ids['os-type-filter'].listeners.change();
+  assert.deepEqual(h.visible(), ['new', 'old']);
+  assert.equal(h.saved().type, 'drug');
+  assert.equal(h.ids['os-status-filter'].options[1].textContent, 'pending (3)');
+  h.ids['os-status-filter'].value = 'ordered';
+  h.ids['os-status-filter'].listeners.change();
+  assert.deepEqual(h.visible(), ['same-day-late']);
+  h.context.refreshCounts();
+  assert.equal(h.ids['os-status-filter'].value, 'ordered');
+  h.ids['os-clear-filters'].listeners.click();
+  assert.equal(h.ids['os-type-filter'].value, 'all');
+  assert.equal(h.ids['os-status-filter'].value, 'all');
+});
+
+test('deleting the last row hides the table and shows the true empty state', () => {
+  const h = harness();
+  h.rows.splice(0);
+  h.context.totalRows = 0;
+  h.context.refreshCounts();
+  h.context.applyFilters();
+  assert.equal(h.ids['os-table'].style.display, 'none');
+  assert.equal(h.ids['os-empty'].style.display, '');
+  assert.equal(h.ids['os-count'].textContent, 0);
 });

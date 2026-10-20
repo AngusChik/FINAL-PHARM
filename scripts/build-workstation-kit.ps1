@@ -8,7 +8,12 @@ Set-StrictMode -Version Latest
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $envFile = Join-Path $projectRoot ".env"
-$certificate = Join-Path $projectRoot "Pharmacy-Root-Certificate.crt"
+# Read the active server CA first; an old exported copy may belong to a
+# previous desktop. Never include a leaf certificate or a private key.
+$certificate = Join-Path $projectRoot "caddy_data\caddy\pki\authorities\local\root.crt"
+if (-not (Test-Path -LiteralPath $certificate -PathType Leaf)) {
+    $certificate = Join-Path $projectRoot "Pharmacy-Root-Certificate.crt"
+}
 $setupBatch = Join-Path $projectRoot "setup-workstation.bat"
 $setupScript = Join-Path $PSScriptRoot "setup-workstation.ps1"
 
@@ -56,6 +61,11 @@ $instructions = @(
     "2. Enter this server URL when asked: $ServerUrl",
     "3. Restart Chrome or Edge if it was already open.",
     "4. Open the new Pharmacy shortcut.",
+    "",
+    "Use this same kit on each of the six PU computers. Each browser gets its own PU session.",
+    "Phone connection: $ServerUrl/connect-phone/",
+    "Join the pharmacy Wi-Fi and install/trust this public root certificate on the phone first.",
+    "Phone access has a separate allowance and does not sign a computer out.",
     "",
     "This kit contains only the public HTTPS certificate, server address,",
     "shortcut installer, and these instructions. It contains no database",

@@ -197,7 +197,7 @@ body.embed-shell.ui-compact .active-table:not(.ui-table-compact) > :is(thead, tb
     body.auth-shell.ui-compact.has-development-banner { padding-top: 0; }
     body.ui-compact .ui-development-banner { position: sticky; }
     body.app-shell.ui-compact > .container {
-        padding: 10px 10px calc(88px + env(safe-area-inset-bottom));
+        padding: 10px 10px calc(var(--ui-mobile-nav-height, 72px) + 16px);
     }
     body.app-shell.ui-compact .home-dashboard .dashboard-header { gap: 8px; }
     body.app-shell.ui-compact .home-dashboard .action-btn { min-height: 44px; }

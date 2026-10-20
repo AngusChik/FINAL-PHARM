@@ -113,10 +113,10 @@
         display: grid;
         /* Barcode + summary occupy the left 30%; order items use the right 70%. */
         grid-template-columns: minmax(300px, 3fr) minmax(0, 7fr);
-        grid-template-rows: auto minmax(0, 1fr);
-        gap: 16px 24px;
+        grid-template-rows: auto;
+        gap: 8px 24px;
         align-items: start;
-        margin-top: 20px;
+        margin-top: 8px;
     }
 
     .left-controls {
@@ -155,14 +155,22 @@
         width: 100%;
         min-width: 0;
         margin: 0;
-        padding: 18px;
+        padding: 18px 18px 12px;
     }
 
     .scan-product-heading {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 10px;
         margin-bottom: 12px;
+    }
+
+    .scan-product-status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
     }
 
     #search-box[data-width-neutral-lookup] .scan-product-heading > h3 {
@@ -174,7 +182,7 @@
         white-space: normal;
     }
 
-    #search-box[data-width-neutral-lookup] .scan-product-heading > .scan-hint {
+    #search-box[data-width-neutral-lookup] .scan-product-status > .scan-hint {
         margin: 0;
         padding: 4px 8px;
         font-size: calc(13.5px * var(--ui-type-scale, 1));
@@ -226,7 +234,7 @@
     /* ── Right panel / cart ────────────────────────────────────── */
     .right-items {
         grid-column: 2;
-        grid-row: 1 / span 2;
+        grid-row: 1;
         width: 100%;
         min-width: 0;
         align-self: start;
@@ -359,7 +367,7 @@
     .order-item-main {
         grid-area: main;
         display: grid;
-        grid-template-rows: minmax(72px, auto) minmax(112px, 1fr) auto;
+        grid-template-rows: minmax(72px, auto) minmax(112px, 1fr);
         gap: 10px;
         min-width: 0;
         min-height: 300px;
@@ -517,7 +525,7 @@
         grid-area: actions;
         display: grid;
         grid-template-columns: 1fr;
-        grid-template-rows: auto minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
         gap: 10px;
         align-items: stretch;
         min-width: 0;
@@ -558,6 +566,32 @@
 
     .btn-delete-item:focus-visible {
         outline: 3px solid #fca5a5;
+        outline-offset: 2px;
+    }
+
+    .btn-edit-item {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        justify-self: start;
+        align-self: start;
+        width: auto;
+        min-width: 88px;
+        min-height: 44px;
+        padding: 8px 18px;
+        line-height: 1.2;
+        border: 1px solid var(--primary);
+        border-radius: 8px;
+        background: var(--surface-color);
+        color: var(--primary);
+        font-size: calc(14.5px * var(--ui-type-scale, 1));
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .btn-edit-item:hover { background: #eef2ff; }
+    .btn-edit-item:focus-visible {
+        outline: 3px solid #a5b4fc;
         outline-offset: 2px;
     }
 
@@ -855,12 +889,12 @@
     @media (max-width: 1050px) {
         .main-grid {
             grid-template-columns: 1fr;
-            grid-template-rows: auto auto auto;
+            grid-template-rows: auto auto;
         }
 
         #search-box[data-width-neutral-lookup] { grid-column: 1; grid-row: 1; }
 
-        .right-items { grid-column: 1; grid-row: 3; }
+        .right-items { grid-column: 1; grid-row: 2; }
 
         .left-controls {
             position: static;
@@ -929,14 +963,14 @@
         }
 
         .order-item-main {
-            grid-template-rows: auto auto auto;
+            grid-template-rows: auto auto;
             min-height: 0;
         }
 
         .col-actions,
         .item-right {
             grid-template-columns: 1fr;
-            grid-template-rows: auto auto;
+            grid-template-rows: auto auto auto auto;
             height: auto;
         }
 
@@ -1181,7 +1215,7 @@
         grid-column: 1;
         grid-row: 2;
         width: 100%;
-        position: sticky; top: 12px;
+        position: static;
         background: #fff; border-radius: 16px;
         box-shadow: 0 2px 12px rgba(0,0,0,0.08);
         border: 1px solid var(--of-border);
@@ -1227,7 +1261,6 @@
     }
     .ot-total-label { font-size: calc(14px * var(--ui-type-scale, 1)); font-weight: 700; text-transform: uppercase; color: #475569; letter-spacing: 0.06em; }
     .ot-total-value { font-size: calc(clamp(40px, 3.7vw, 58px) * var(--ui-type-scale, 1)); font-weight: 900; line-height: 0.96; letter-spacing: -0.045em; font-variant-numeric: tabular-nums; color: #0f172a; margin: 8px 0 4px; white-space: nowrap; }
-    .ot-total-sub { font-size: calc(15px * var(--ui-type-scale, 1)); color: #6b7280; }
 
     .ot-line-items-wrap {
         flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 16px;
@@ -1356,32 +1389,21 @@
         letter-spacing: 0.035em; white-space: nowrap;
     }
 
-    /* ── Auto-submit timer: animated bottom edge of the lookup card ── */
-    #search-box:has(#autoSubmitBar) {
-        padding-bottom: 42px;
-    }
-
-    #search-box > #orderTimerRegion {
-        position: absolute;
-        inset: 0;
-        z-index: 3;
+    /* Auto-submit progress on the top edge; time beside the scan heading. */
+    #search-box #orderTimerRegion {
+        flex: 0 0 auto;
         pointer-events: none;
     }
 
     .auto-submit-bar {
-        position: absolute;
-        inset: auto 0 0;
         display: flex;
         align-items: center;
-        gap: 8px;
-        min-height: 34px;
         margin: 0;
-        padding: 0 12px 7px;
+        padding: 0;
         background: transparent;
         border: 0;
-        border-radius: 0 0 15px 15px;
         color: #92400e;
-        font-size: calc(14px * var(--ui-type-scale, 1));
+        font-size: calc(12.5px * var(--ui-type-scale, 1));
         pointer-events: none;
     }
 
@@ -1395,18 +1417,14 @@
         white-space: nowrap;
     }
 
-    .auto-submit-icon {
-        font-size: calc(16px * var(--ui-type-scale, 1));
-        line-height: 1;
-    }
-
     .auto-submit-progress {
         position: absolute;
-        inset: auto 0 0;
+        inset: 0 0 auto;
+        z-index: 3;
         height: 5px;
         min-width: 0;
         overflow: hidden;
-        border-radius: 0 0 15px 15px;
+        border-radius: 15px 15px 0 0;
         background: rgba(245, 158, 11, 0.22);
     }
 
@@ -1432,18 +1450,6 @@
 
     #search-box:has(.auto-submit-bar.warning) {
         border-color: #fca5a5;
-    }
-
-    @media (max-width: 600px) {
-        #search-box:has(#autoSubmitBar) {
-            padding-bottom: 44px;
-        }
-
-        .auto-submit-bar {
-            padding-inline: 10px;
-            font-size: calc(13.5px * var(--ui-type-scale, 1));
-        }
-
     }
 
     /* ── Stock Movement Log pull-out tab ──────────────────────────
@@ -1576,6 +1582,7 @@
         .ot-box { position: static; max-height: none; overflow: visible; }
     }
 </style>
+<link rel="stylesheet" href="{% static 'css/purchase-compact.css' %}?v=20261020-purchase2">
 
 <!-- PAGE CONTAINER -->
 <div class="order-page">
@@ -1583,11 +1590,15 @@
     <!-- ORDER HEADER -->
     <div class="order-header">
         <div class="header-left">
-            <h1>📦 Current Order</h1>
-            <div class="subtext">Scan a barcode or search to add items</div>
-            <div class="of-quote"><span id="ofQuoteText"></span></div>
+            <div class="order-heading-line">
+                <h1>📦 Current Order</h1>
+                <span class="order-heading-separator" aria-hidden="true">&mdash;</span>
+                <div class="of-quote"><span id="ofQuoteText"></span></div>
+            </div>
         </div>
-        <div style="display:flex; align-items:stretch; gap:12px; flex-wrap:wrap;">
+        <div class="purchase-notifications" data-ui-toast-host data-ui-toast-queue
+             aria-label="Purchase notifications"></div>
+        <div class="header-actions" style="display:flex; align-items:stretch; gap:12px; flex-wrap:wrap;">
             {% if user.is_staff %}
             <a href="{% url 'checkout' %}" class="btn-view-orders">🛒 Checkout</a>
             {% endif %}
@@ -1597,14 +1608,33 @@
 
     <!-- 30/70 purchase workspace: barcode + summary left, order items right. -->
     <div class="main-grid">
+    <div class="purchase-left-stack">
 
     <!-- Compact barcode/search card at the top of the left rail. -->
     <div class="control-box ui-workflow-lookup-bar" id="search-box" data-width-neutral-lookup>
         <div class="scan-product-heading">
           <h3>Scan product</h3>
-          <div class="scan-hint" aria-live="polite">
-            <span class="hint-dot"></span>
-            <span class="hint-ready">Ready</span>
+          <div class="scan-product-status">
+            <div class="scan-hint" aria-live="polite">
+              <span class="hint-dot"></span>
+              <span class="hint-ready">Ready</span>
+            </div>
+          </div>
+          <div id="orderTimerRegion">
+            {% if order_items %}
+            <div class="auto-submit-bar" id="autoSubmitBar"
+                 data-order-id="{{ order.order_id|default:'' }}"
+                 data-timer-reset-count="{{ order.timer_reset_count|default:0 }}"
+                 data-server-now-ms="{{ order_server_now_ms|default:0 }}"
+                 data-expires-at-ms="{% if order_deadline_ms %}{{ order_deadline_ms }}{% else %}{{ order.draft_expires_at|date:'U'|default:'0' }}000{% endif %}">
+              <div class="auto-submit-info" role="timer" aria-label="Time until automatic submission">
+                <strong id="autoSubmitCountdown">10:00</strong>
+              </div>
+              <div class="auto-submit-progress" aria-hidden="true">
+                <div class="auto-submit-progress-bar" id="autoSubmitProgressBar"></div>
+              </div>
+            </div>
+            {% endif %}
           </div>
         </div>
         <div class="form-group autocomplete-wrapper ui-product-lookup">
@@ -1618,120 +1648,7 @@
             </div>
             <div id="autocomplete-results"></div>
         </div>
-        <div id="orderTimerRegion">
-        {% if order_items %}
-        <div class="auto-submit-bar" id="autoSubmitBar"
-             data-order-id="{{ order.order_id|default:'' }}"
-             data-timer-reset-count="{{ order.timer_reset_count|default:0 }}"
-             data-server-now-ms="{{ order_server_now_ms|default:0 }}"
-             data-expires-at-ms="{% if order_deadline_ms %}{{ order_deadline_ms }}{% else %}{{ order.draft_expires_at|date:'U'|default:'0' }}000{% endif %}">
-          <div class="auto-submit-info">
-            <span class="auto-submit-icon" aria-hidden="true">⏱️</span>
-            <span>Auto-submit in <strong id="autoSubmitCountdown">10:00</strong></span>
-          </div>
-          <div class="auto-submit-progress" aria-hidden="true">
-            <div class="auto-submit-progress-bar" id="autoSubmitProgressBar"></div>
-          </div>
-        </div>
-        {% endif %}
-        </div>
     </div>
-
-        <!-- RIGHT 70%: ORDER ITEMS -->
-<div class="right-items">
-  <div class="items-header">
-    <h2>Order Items</h2>
-    <span class="items-header-count">{{ order_items|length }} item{{ order_items|length|pluralize }}</span>
-  </div>
-
-  <div class="items-container">
-    {% if order_items %}
-    {% for item in order_items %}
-        <div class="order-item">
-
-          <!-- LEFT 70%: ordered quantity/name, price, then unboxed barcode footer -->
-          <div class="order-item-main">
-            <div class="item-top">
-              <span class="item-quantity" aria-label="Order quantity: {{ item.quantity }}">{{ item.quantity }}×</span>
-              <span class="item-name">{{ item.product.name }}</span>
-            </div>
-
-            <div class="col-price item-price-section {% if item.product.taxable %}is-taxable{% else %}is-tax-free{% endif %}">
-              <div class="item-price-label">Price</div>
-              <div class="item-price">${{ item.product.price|floatformat:2 }}</div>
-              {% if item.product.taxable %}
-                <span class="item-tax-pill" aria-label="Taxable item" title="Taxable">TAX</span>
-              {% endif %}
-            </div>
-
-            <div class="barcode-display" aria-label="Barcode{% if item.product.barcode %}: {{ item.product.barcode }}{% else %} not set{% endif %}">
-              <div class="barcode-display-label">Barcode</div>
-              {% if item.product.barcode %}
-              <div class="barcode-display-value">
-                <div class="barcode-display-full">{{ item.product.barcode }}</div>
-                <button type="button" class="barcode-copy-btn" data-barcode="{{ item.product.barcode }}"
-                        aria-label="Copy barcode {{ item.product.barcode }}" title="Copy barcode">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
-                    <rect x="9" y="9" width="12" height="12" rx="2"></rect>
-                    <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path>
-                  </svg>
-                  Copy
-                </button>
-              </div>
-              {% else %}
-              <div class="barcode-display-empty">Not set</div>
-              {% endif %}
-            </div>
-          </div>
-
-          <!-- RIGHT 30%: destructive action, then paired expiry and lot details -->
-          <div class="col-actions item-right">
-            <form method="post" action="{% url 'delete_order_item' item.product.product_id %}"
-                  data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box">
-              {% csrf_token %}
-              <button type="submit" class="btn-delete-item"
-                      aria-label="Remove one unit of {{ item.product.name }} from order">🗑️ Remove one</button>
-            </form>
-
-            <div class="expiry-panel">
-              <div class="expiry-panel-label">Expiries &amp; lots</div>
-              <div class="expiry-panel-columns" aria-hidden="true">
-                <span>Lot designation</span>
-                <span>Expiry date</span>
-              </div>
-              <div class="expiry-panel-list">
-                {% for expiry in item.expiry_lot_rows %}
-                <div class="expiry-panel-row" data-expiry="{{ expiry.date|date:'Y-m-d' }}">
-                  <div class="expiry-panel-lot">
-                    <span class="expiry-panel-lot-number">
-                      {% if expiry.legacy or expiry.lot_number == "UNASSIGNED" %}UNASSIGNED{% else %}{{ expiry.lot_number }}{% endif %}
-                    </span>
-                  </div>
-                  <time class="expiry-panel-date" datetime="{{ expiry.date|date:'Y-m-d' }}">{{ expiry.date|date:"M d, Y" }}</time>
-                </div>
-                {% empty %}
-                <div class="expiry-panel-row">
-                  <div class="expiry-panel-lot">
-                    <span class="expiry-panel-lot-number">—</span>
-                  </div>
-                  <span class="expiry-panel-date">No expiry recorded</span>
-                </div>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-
-        </div>
-      {% endfor %}
-    {% else %}
-      <div class="empty-state">
-        <div class="empty-state-icon">🛒</div>
-        <p>No items in order</p>
-        <p>Scan a barcode or search to add items</p>
-      </div>
-    {% endif %}
-  </div>
-</div>
 
 <!-- LEFT 30%: ORDER SUMMARY BELOW BARCODE -->
 <div class="ot-box">
@@ -1759,7 +1676,6 @@
     <div class="ot-total-main">
       <div class="ot-total-label">Total (After Tax)</div>
       <div class="ot-total-value">${{ total_price_after_tax|floatformat:2 }}</div>
-      <div class="ot-total-sub">{% if order %}Order #{{ order.order_id }}{% else %}New order{% endif %}</div>
     </div>
     {% if order_items %}
     <form method="post" action="{% url 'create_order' %}" class="ot-discount-form"
@@ -1821,6 +1737,110 @@
     </div>
   </div>
 
+</div>
+
+    </div><!-- /purchase-left-stack -->
+
+    <!-- RIGHT 70%: ORDER ITEMS -->
+<div class="right-items">
+  <div class="items-header">
+    <h2>Order Items</h2>
+    <span class="items-header-count">{{ order_items|length }} item{{ order_items|length|pluralize }}</span>
+  </div>
+
+  <div class="items-container">
+    {% if order_items %}
+    {% for item in order_items %}
+        <div class="order-item">
+
+          <!-- LEFT 70%: ordered quantity/name and price. -->
+          <div class="order-item-main">
+            <div class="item-top">
+              <span class="item-quantity" aria-label="Order quantity: {{ item.quantity }}">{{ item.quantity }}×</span>
+              <span class="item-name">{{ item.product.name }}</span>
+            </div>
+
+            <div class="col-price item-price-section {% if item.product.taxable %}is-taxable{% else %}is-tax-free{% endif %}">
+              <div class="item-price-label">Price</div>
+              <div class="item-price">${{ item.product.price|floatformat:2 }}</div>
+              {% if item.product.taxable %}
+                <span class="item-tax-pill" aria-label="Taxable item" title="Taxable">TAX</span>
+              {% else %}
+                <span class="item-tax-pill no-tax" aria-label="Tax-free item" title="No tax">NO TAX</span>
+              {% endif %}
+            </div>
+
+          </div>
+
+          <!-- RIGHT 30%: actions, expiry details, then barcode/copy. -->
+          <div class="col-actions item-right">
+            <form method="post" action="{% url 'delete_order_item' item.product.product_id %}"
+                  data-seamless data-seamless-refresh="#orderTimerRegion,.right-items,.ot-box">
+              {% csrf_token %}
+              <button type="submit" class="btn-delete-item"
+                      aria-label="Remove one unit of {{ item.product.name }} from order">🗑️ Remove one</button>
+            </form>
+
+            <a href="{% url 'edit_product' product_id=item.product.product_id %}?next={{ request.get_full_path|urlencode }}"
+               class="btn-edit-item" aria-label="Edit {{ item.product.name }}">Edit</a>
+
+            <div class="expiry-panel">
+              <div class="expiry-panel-label">Expiries &amp; lots</div>
+              <div class="expiry-panel-columns" aria-hidden="true">
+                <span>Lot designation</span>
+                <span>Expiry date</span>
+              </div>
+              <div class="expiry-panel-list">
+                {% for expiry in item.expiry_lot_rows %}
+                <div class="expiry-panel-row" data-expiry="{{ expiry.date|date:'Y-m-d' }}">
+                  <div class="expiry-panel-lot">
+                    <span class="expiry-panel-lot-number">
+                      {% if expiry.legacy or expiry.lot_number == "UNASSIGNED" %}UNASSIGNED{% else %}{{ expiry.lot_number }}{% endif %}
+                    </span>
+                  </div>
+                  <time class="expiry-panel-date" datetime="{{ expiry.date|date:'Y-m-d' }}">{{ expiry.date|date:"M d, Y" }}</time>
+                </div>
+                {% empty %}
+                <div class="expiry-panel-row">
+                  <div class="expiry-panel-lot">
+                    <span class="expiry-panel-lot-number">—</span>
+                  </div>
+                  <span class="expiry-panel-date">No expiry recorded</span>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <div class="barcode-display" aria-label="Barcode{% if item.product.barcode %}: {{ item.product.barcode }}{% else %} not set{% endif %}">
+              <div class="barcode-display-label">Barcode</div>
+              {% if item.product.barcode %}
+              <div class="barcode-display-value">
+                <div class="barcode-display-full">{{ item.product.barcode }}</div>
+              </div>
+              <button type="button" class="barcode-copy-btn" data-barcode="{{ item.product.barcode }}"
+                        aria-label="Copy barcode {{ item.product.barcode }}" title="Copy barcode">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+                    <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+                    <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path>
+                  </svg>
+                  Copy
+              </button>
+              {% else %}
+              <div class="barcode-display-empty">Not set</div>
+              {% endif %}
+            </div>
+          </div>
+
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-state-icon">🛒</div>
+        <p>No items in order</p>
+        <p>Scan a barcode or search to add items</p>
+      </div>
+    {% endif %}
+  </div>
 </div>
 
 </div><!-- /main-grid -->

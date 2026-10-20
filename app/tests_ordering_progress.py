@@ -784,147 +784,27 @@ class OrderingProgressDetailsTests(TestCase):
 
 
 class OrderingProgressClientContractTests(SimpleTestCase):
-    def test_full_page_and_embed_toolbar_keep_search_in_desktop_grid(self):
-        template = (
-            Path(settings.BASE_DIR)
-            / 'app'
-            / 'templates'
-            / 'partials'
-            / '_ordering_sheet.html'
-        ).read_text(encoding='utf-8')
-
-        toolbar_start = template.index('<div class="table-card-header">')
-        table_start = template.index(
-            '<div class="active-table-wrap"',
-            toolbar_start,
-        )
-        toolbar = template[toolbar_start:table_start]
-
-        for marker in (
-            'class="os-toolbar-heading"',
-            'class="os-toolbar-title-row"',
-            'id="os-items-title"',
-            'id="os-count"',
-            'class="os-personalize-slot" data-table-action-slot',
-            'class="os-type-filter"',
-            'class="os-insights"',
-            'id="os-high-flag"',
-            'class="os-search-tools"',
-            'id="os-search"',
-            'id="os-clear-filters"',
-            'id="os-bulk-delete"',
-        ):
-            with self.subTest(marker=marker):
-                self.assertIn(marker, toolbar)
-
-        self.assertIn(
-            '<div class="os-toolbar-heading">\n'
-            '            <div class="os-toolbar-title-row">\n'
-            '                <h2 id="os-items-title">Ordering</h2>\n'
-            '                <span class="badge-count" id="os-count">{{ entries|length }}</span>\n'
-            '            </div>\n'
-            '        </div>',
-            toolbar,
-        )
-
-        insights_start = toolbar.index('<div class="os-insights"')
-        insights_end = toolbar.index('</div>', insights_start)
-        self.assertNotIn('id="os-clear-filters"', toolbar[insights_start:insights_end])
-        search_tools_start = toolbar.index('<div class="os-search-tools">')
-        search_tools_end = toolbar.index('</div>', search_tools_start)
-        search_tools = toolbar[search_tools_start:search_tools_end]
-        self.assertIn('class="os-personalize-slot" data-table-action-slot', search_tools)
+    def test_full_page_and_embed_toolbar_use_compact_dropdowns(self):
+        template = (Path(settings.BASE_DIR) / 'app/templates/partials/_ordering_sheet.html').read_text(encoding='utf-8')
+        css = (Path(settings.BASE_DIR) / 'static/css/ordering-sheet.css').read_text(encoding='utf-8')
+        toolbar = template[template.index('<div class="table-card-header">'):template.index('<div class="active-table-wrap"')]
+        for marker in ('id="os-type-filter"', 'id="os-status-filter"', 'id="os-high-flag"',
+                       'id="os-search"', 'id="os-clear-filters"', 'data-table-action-slot',
+                       'id="os-bulk-delete"'):
+            self.assertIn(marker, toolbar)
+        self.assertNotIn('class="os-stat ', toolbar)
+        self.assertNotIn('class="os-filter-btn', toolbar)
+        self.assertLess(toolbar.index('id="os-search"'), toolbar.index('id="os-clear-filters"'))
+        self.assertLess(toolbar.index('id="os-clear-filters"'), toolbar.index('data-table-action-slot'))
         self.assertEqual(toolbar.count('data-table-action-slot'), 1)
-        self.assertLess(search_tools.index('id="os-search"'), search_tools.index('class="os-personalize-slot"'))
-        self.assertLess(search_tools.index('id="os-search"'), search_tools.index('id="os-clear-filters"'))
-        self.assertRegex(
-            search_tools,
-            r'id="os-search"[^>]*>\s*<button[^>]*id="os-clear-filters"',
-        )
-        self.assertLess(toolbar.index('id="os-clear-filters"'), toolbar.index('id="os-bulk-delete"'))
-
-        clear_css_start = template.index('\n    .os-clear-filters {')
-        clear_css_end = template.index('\n    }', clear_css_start)
-        clear_css = template[clear_css_start:clear_css_end]
-        self.assertIn('flex: 0 0 auto;', clear_css)
-        self.assertIn('margin-left: 0;', clear_css)
-        self.assertIn('white-space: nowrap;', clear_css)
-        self.assertNotIn('margin-left: auto;', clear_css)
-
-        search_tools_css_start = template.index('.os-search-tools {')
-        search_tools_css_end = template.index('\n    }', search_tools_css_start)
-        search_tools_css = template[search_tools_css_start:search_tools_css_end]
-        self.assertIn('flex: 0 1 auto;', search_tools_css)
-        self.assertIn('display: inline-grid;', search_tools_css)
-        self.assertIn('grid-template-columns: minmax(0, 1fr) auto;', search_tools_css)
-        self.assertIn('max-width: 100%;', search_tools_css)
-        self.assertIn('.os-search-tools .os-clear-filters { grid-column: 2; grid-row: 1; }', template)
-        self.assertIn('.os-search-tools .os-personalize-slot { grid-column: 1; grid-row: 2; justify-self: start; }', template)
-
-        search_input_css_start = template.index('.os-search-tools .table-search {')
-        search_input_css_end = template.index('\n    }', search_input_css_start)
-        search_input_css = template[search_input_css_start:search_input_css_end]
-        self.assertIn('min-width: 0;', search_input_css)
-        self.assertIn('margin-left: 0;', search_input_css)
-
-        self.assertNotIn(
-            '</div>\n    <div class="os-insights"',
-            template,
-        )
-        shared_header_selector = (
-            ':is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] '
-            '.table-card-header {'
-        )
-        self.assertIn(shared_header_selector, template)
-        header_start = template.index(
-            shared_header_selector
-        )
-        header_end = template.index('\n        }', header_start)
-        header_css = template[header_start:header_end]
-        self.assertIn('flex-wrap: wrap;', header_css)
-        self.assertIn('column-gap: 0.5rem;', header_css)
-        self.assertIn('overflow: visible;', header_css)
-        self.assertNotIn('overflow-x: auto;', header_css)
-
-        insights_css_start = template.index(
-            ':is(body.app-shell, body.embed-shell)[data-page="ordering_sheet"] '
-            '.table-card-header .os-insights {'
-        )
-        insights_css_end = template.index('\n        }', insights_css_start)
-        insights_css = template[insights_css_start:insights_css_end]
-        self.assertIn('flex: 1 1 620px;', insights_css)
-        self.assertIn('flex-wrap: wrap;', insights_css)
-
-        desktop_grid_start = template.index('@media screen and (min-width: 1024px)')
-        desktop_grid_end = template.index('\n    }\n\n    .delete-btn', desktop_grid_start)
-        desktop_grid_css = template[desktop_grid_start:desktop_grid_end]
-        self.assertIn(shared_header_selector, desktop_grid_css)
-        self.assertIn('display: grid;', desktop_grid_css)
-        self.assertIn(
-            'grid-template-columns: max-content max-content minmax(150px, 1fr) '
-            'minmax(210px, max-content);',
-            desktop_grid_css,
-        )
-        self.assertIn('align-items: center;', desktop_grid_css)
-        self.assertIn('overflow: visible;', desktop_grid_css)
-        self.assertNotIn('overflow-x: auto;', desktop_grid_css)
-        for expected in (
-            '.table-card-header .os-toolbar-heading {\n            grid-column: 1;',
-            '.table-card-header .os-type-filter {\n            grid-column: 2;\n            margin-left: 0;',
-            '.table-card-header .os-insights {\n            grid-column: 3;\n            min-width: 0;\n            flex: initial;\n            flex-wrap: wrap;',
-            '.table-card-header .os-search-tools {\n            grid-column: 4;\n            width: 100%;\n            max-width: none;\n            margin-left: 0;',
-            '.table-card-header .os-bulk-delete.visible {\n            grid-column: 4;\n            grid-row: 2;\n            justify-self: end;',
-        ):
-            with self.subTest(expected=expected):
-                self.assertIn(expected, desktop_grid_css)
-
-        for selector in ('.os-stat {', '.os-urg-flag {'):
-            with self.subTest(selector=selector):
-                rule_start = template.index(selector)
-                rule_end = template.index('\n    }', rule_start)
-                rule_css = template[rule_start:rule_end]
-                self.assertIn('flex: 0 0 auto;', rule_css)
-                self.assertIn('white-space: nowrap;', rule_css)
+        for value in ('all', 'pending', 'ordered', 'backordered', 'not_for_sale'):
+            self.assertIn(f'<option value="{value}" data-label=', toolbar)
+        rule_start = css.index('#os-workspace .table-card-header {')
+        rule = css[rule_start:css.index('}', rule_start)]
+        self.assertIn('display: flex;', rule)
+        self.assertIn('flex-wrap: wrap;', rule)
+        self.assertIn('overflow: visible;', rule)
+        self.assertNotIn('overflow-x: auto;', rule)
 
     def test_full_page_uses_viewport_height_with_table_owned_scrolling(self):
         template = (
@@ -1116,6 +996,7 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
             / 'partials'
             / '_ordering_sheet.html'
         ).read_text(encoding='utf-8')
+        self.sheet_css = (Path(settings.BASE_DIR) / 'static/css/ordering-sheet.css').read_text(encoding='utf-8')
 
     def test_reason_colors_only_fill_reasoning_cell_except_when_backordered(self):
         row = '.active-table tbody tr:not([data-status="backordered"])'
@@ -1181,10 +1062,10 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
         self.assertIn('class="os-actions-primary"', self.template)
         self.assertIn('class="os-actions-status"', self.template)
         self.assertIn('class="os-action-buttons" role="group"', self.template)
-        self.assertIn('width: 320px; min-width: 320px; max-width: 320px;', self.template)
+        self.assertIn('width: 294px; min-width: 0; max-width: none;', self.sheet_css)
         self.assertIn(
-            'display: grid; grid-template-columns: minmax(156px, 1fr) auto;',
-            self.template,
+            'grid-template-columns: minmax(0, 1fr) auto;',
+            self.sheet_css,
         )
         self.assertNotIn('nth-last-child(2)', self.template)
         self.assertNotIn('nth-last-child(-n+2)', self.template)
@@ -1209,30 +1090,12 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
         self.assertNotIn('padding:', reason_css)
 
     def test_compact_supporting_columns_leave_more_room_for_drug_name(self):
-        self.assertIn(
-            '.active-table .os-patient-col { width: 100px; min-width: 90px; '
-            'max-width: 100px; padding-inline: 0.375rem; }',
-            self.template,
-        )
-        self.assertIn(
-            '.active-table .os-name-col { width: 44%; min-width: 500px; '
-            'max-width: 840px; padding-left: 0.375rem; }',
-            self.template,
-        )
-        self.assertIn(
-            '.active-table .os-reason-col { width: 128px; min-width: 128px; max-width: 128px; }',
-            self.template,
-        )
-        self.assertIn(
-            '.active-table .os-qty-needed-col { width: 1%; min-width: 76px; '
-            'padding-right: 0.375rem; white-space: nowrap; }',
-            self.template,
-        )
-        self.assertIn(
-            '.active-table .os-qty-remaining-col { width: 1%; min-width: 100px; '
-            'padding-left: 0.375rem; white-space: nowrap; }',
-            self.template,
-        )
+        for class_name, width in (
+            ('os-patient-col', '96px'), ('os-name-col', 'auto'),
+            ('os-reason-col', '140px'), ('os-qty-needed-col', '65px'),
+            ('os-qty-remaining-col', '88px'),
+        ):
+            self.assertIn(f'#os-workspace #os-table .{class_name} {{ width: {width}; min-width: 0;', self.sheet_css)
         self.assertIn(
             '<th class="os-qty-needed-col" data-column-key="qty-needed" '
             'data-column-label="Needed">Needed</th>',
@@ -1257,13 +1120,12 @@ class OrderingRowPresentationContractTests(SimpleTestCase):
         drug_name_css = self.template[drug_name_start:drug_name_end]
         self.assertIn('white-space: normal;', drug_name_css)
         self.assertIn('overflow-wrap: anywhere;', drug_name_css)
-        self.assertIn('font-size: calc(22px * var(--ui-type-scale, 1));', drug_name_css)
+        self.assertIn('font-size: calc(14px * var(--ui-type-scale, 1));', self.sheet_css)
         self.assertNotIn('text-overflow:', drug_name_css)
         self.assertNotIn('overflow: hidden;', drug_name_css)
         self.assertIn(
-            '.os-name-line { display: flex; align-items: flex-start; gap: 0.4rem; '
-            'min-width: 0; max-width: 840px; }',
-            self.template,
+            '#os-workspace .os-name-line { align-items: center; gap: 5px; max-width: none; }',
+            self.sheet_css,
         )
         self.assertIn('<th class="os-patient-col"', self.template)
         self.assertIn('<td class="os-patient-col">', self.template)

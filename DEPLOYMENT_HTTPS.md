@@ -17,9 +17,9 @@ and waits for Django plus PostgreSQL to pass `/healthz/` before starting Caddy.
 3. Ensure `.env` contains a real `DJANGO_SECRET_KEY`, database credentials, and:
 
    ```env
-   PHARMACY_HOST=192.168.0.15
-   DJANGO_ALLOWED_HOSTS=192.168.0.15,localhost,127.0.0.1
-   DJANGO_CSRF_TRUSTED_ORIGINS=https://192.168.0.15,https://localhost
+   PHARMACY_HOST=192.168.0.22
+   DJANGO_ALLOWED_HOSTS=192.168.0.22,localhost,127.0.0.1
+   DJANGO_CSRF_TRUSTED_ORIGINS=https://192.168.0.22,https://localhost
    ```
 
 4. Open TCP ports 80 and 443 to the pharmacy LAN. Do not expose port 8000;
@@ -30,6 +30,45 @@ and waits for Django plus PostgreSQL to pass `/healthz/` before starting Caddy.
 
 Use `configure_ip.bat` whenever the server PC's LAN address changes. It updates
 the shared `.env` values used by Django, Caddy, and the production launcher.
+
+## Six PU computers and phone access
+
+Six computers can use the same PU login at once. Each browser has its own
+session, displayed as PU1 through PU6. A seventh computer is refused without
+disconnecting the first six. Reopening a browser profile without its old login
+cookie is a new session; the previous session expires or can be logged off from
+Active Sessions. IP addresses are for identification, not for replacing sessions.
+
+`MAX_PU_SESSIONS=6` sets computer capacity. `MAX_PU_PHONE_SESSIONS=4` allows up to
+four additional phones through the **Connect Phone** QR without using computer
+places. A fifth phone is refused without disconnecting any signed-in device.
+Phone sessions expire after two hours. Admin sessions remain separate. If the
+server's `.env` already sets `MAX_PU_PHONE_SESSIONS`, change it to `4` before
+restarting Pharmacy; an explicit value overrides the new default.
+
+The production launcher accepts client IP and HTTPS headers only from the local
+Caddy proxy. Keep Waitress bound to `127.0.0.1` and port 8000 closed to the LAN.
+
+For the new desktop at `192.168.0.22`, after installing this release and stopping
+Pharmacy, run in its production folder:
+
+```powershell
+.\env\Scripts\python.exe configure_ip.py 192.168.0.22
+.\production.bat start
+.\production.bat status
+```
+
+The website is `https://192.168.0.22` and the dashboard phone QR must encode
+`https://192.168.0.22/connect-phone/`, with no `:8000` port. Do not copy another
+computer's `.env`, database, or Caddy keys to change the address.
+
+Once the server is healthy, rebuild its workstation kit with
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\build-workstation-kit.ps1`.
+The kit uses the active server's public `caddy_data\caddy\pki\authorities\local\root.crt`
+and the configured server address. Run `setup-workstation.bat` from that kit on
+each Windows workstation. Phones need the same public root certificate trusted
+in their operating system and must connect to the pharmacy Wi-Fi before scanning
+the dashboard QR. Never distribute `.key` files or an IP-named leaf certificate.
 
 ## Operation
 

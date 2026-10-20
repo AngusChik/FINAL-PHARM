@@ -101,7 +101,7 @@ class CheckinFastPathTests(TestCase):
         ))
         self.assertIn('value="FRAGMENT-LOT"', payload['lot_rows_html'])
         self.assertIn('name="lot_quantity"', payload['lot_rows_html'])
-        self.assertIn('Session History', payload['session_history_html'])
+        self.assertIn('This session', payload['session_history_html'])
         self.assertIn('Product movement', payload['movement_html'])
         self.assertLess(len(fragments.content), len(full_page.content) // 2)
 

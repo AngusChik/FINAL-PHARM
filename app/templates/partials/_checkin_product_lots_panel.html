@@ -1,10 +1,12 @@
-<div class="receiving-saved-lots" id="receivingSavedLots">
+<div class="receiving-saved-lots" id="receivingSavedLots" data-lot-editor data-derive-stock-total data-track-lot-removals>
   <div class="receiving-saved-lots-title">
     <div class="receiving-saved-lots-actions">
-      <span class="receiving-saved-lots-count">{{ display_product_lots|length }} saved</span>
-      <button type="button" id="receivingNewLotButton" class="receiving-new-lot-button"
+      <button type="button" class="receiving-new-lot-button edit-mode" data-add-lot>＋ New lot</button>
+      {% if not session.inventory_mode %}
+      <span class="receiving-saved-lots-count view-mode">{{ display_product_lots|length }} saved</span>
+      <button type="button" id="receivingNewLotButton" class="receiving-new-lot-button view-mode"
               aria-controls="receivingNewLotFields" aria-expanded="false">＋ New lot</button>
-      <button type="button" id="assignLotStockButton" class="lot-assignment-toggle"
+      <button type="button" id="assignLotStockButton" class="lot-assignment-toggle view-mode"
               aria-controls="receivingLotList lotAssignmentGuidance"
               aria-pressed="false"
               {% if assignment_blocked_reason %}disabled aria-describedby="lotAssignmentBlocked"{% endif %}>
@@ -13,6 +15,7 @@
       <button type="button" id="cancelLotAssignment" class="lot-assignment-cancel" hidden>
         Cancel
       </button>
+    {% endif %}
     </div>
   </div>
 
@@ -25,7 +28,7 @@
     Choose the lot stock is moving from.
   </p>
 
-  <div class="receiving-lot-picker"
+  <div class="receiving-lot-picker view-mode"{% if session.inventory_mode %} hidden{% endif %}
        data-draft-save-url="{% url 'checkin_receiving_draft' session_id=session.pk product_id=product.product_id %}"
        data-draft-revision="{{ receiving_draft_revision|default:0 }}">
     <select form="quickLotAddForm" id="receivingLotSelect" name="existing_lot_id" hidden
@@ -65,70 +68,12 @@
   </div>
 
   <div class="receiving-lot-column-head" aria-hidden="true">
-    <span>Lot name</span>
-    <span>Stock level</span>
-    <span>Expiry date</span>
+    <span aria-hidden="true"></span><span>Lot number</span><span>Expiry</span><span>Units</span><span></span>
   </div>
-  <ul class="receiving-lot-list" id="receivingLotList" aria-label="Product lots">
-    {% for lot in display_product_lots %}
-    <li class="receiving-lot-list-item"
-        data-assignment-lot-id="{{ lot.pk }}"
-        data-assignment-lot-name="{{ lot.destination_name }}"
-        data-assignment-lot-balance="{{ lot.quantity_on_hand }}"
-        data-assignment-lot-expiry="{{ lot.expiry_date|date:'Y-m-d' }}"
-        data-assignment-internal-main="{% if lot.is_unassigned %}true{% else %}false{% endif %}">
-      <button type="button"
-              class="receiving-lot-row{% if selected_receiving_lot_id == lot.pk %} is-selected{% endif %}"
-              {% if lot.pk in receivable_lot_ids %}
-              data-receiving-lot-id="{{ lot.pk }}"
-              data-lot-display-name="{{ lot.destination_name }}"
-              data-lot-quantity="{{ lot.quantity_on_hand }}"
-              data-receiving-lot-expired="{% if lot.pk in expired_receiving_lot_ids %}true{% else %}false{% endif %}"
-              aria-pressed="{% if selected_receiving_lot_id == lot.pk %}true{% else %}false{% endif %}"
-              aria-label="{% if selected_receiving_lot_id == lot.pk %}Selected{% else %}Select{% endif %} {{ lot.destination_name }} for check-in{% if lot.pk in expired_receiving_lot_ids %}; expired lot confirmation required{% endif %}"
-              title="{% if selected_receiving_lot_id == lot.pk %}Selected{% else %}Select{% endif %} {{ lot.destination_name }} for check-in{% if lot.pk in expired_receiving_lot_ids %} — expired lot confirmation required{% endif %}"
-              {% else %}
-              disabled aria-disabled="true"
-              title="This lot is shown for stock assignment but cannot be used for receiving"
-              {% endif %}>
-        <span class="receiving-lot-name-cell">
-          <strong class="receiving-lot-name">{{ lot.destination_name }}</strong>
-          {% if lot.pk in receivable_lot_ids %}
-          <small class="receiving-lot-checkin-state{% if lot.pk in expired_receiving_lot_ids %} is-expired{% endif %}" data-receiving-lot-checkin-state>
-            {% if lot.pk in expired_receiving_lot_ids %}{% if selected_receiving_lot_id == lot.pk %}Selected · Confirm before receiving{% else %}Expired · Select with confirmation{% endif %}{% elif selected_receiving_lot_id == lot.pk %}Selected for check-in{% else %}Select for check-in{% endif %}
-          </small>
-          {% elif lot.is_unassigned %}
-          <small class="receiving-lot-checkin-state is-unavailable">UNASSIGNED stock — use Assign stock</small>
-          {% else %}
-          <small class="receiving-lot-checkin-state is-unavailable">Not available for check-in</small>
-          {% endif %}
-        </span>
-        <span class="receiving-lot-stock"><span class="ui-stock-quantity ui-stock-quantity--inline">{{ lot.quantity_on_hand }}</span> in stock</span>
-        <span class="receiving-lot-expiry">{% if lot.expiry_date %}{{ lot.expiry_date|date:"d-m-Y" }}{% else %}No expiry{% endif %}</span>
-      </button>
-      <div class="lot-assignment-row-controls" hidden>
-        <button type="button" class="lot-assignment-row-button"
-                data-lot-assignment-choice="{{ lot.pk }}"
-                aria-label="Use {{ lot.destination_name }} as the assignment source or destination"
-                aria-pressed="false">
-          Assign
-        </button>
-        <label class="lot-assignment-quantity">
-          <span>Quantity</span>
-          <input type="number" min="1" max="{{ lot.quantity_on_hand }}"
-                 inputmode="none" autocomplete="off" readonly disabled
-                 data-lot-assignment-quantity="{{ lot.pk }}"
-                 aria-expanded="false"
-                 aria-label="Quantity moving from {{ lot.destination_name }}">
-          <small>of <span class="ui-stock-quantity ui-stock-quantity--inline">{{ lot.quantity_on_hand }}</span></small>
-        </label>
-      </div>
-    </li>
-    {% empty %}
-    <li class="receiving-lot-empty">No saved product lots yet.</li>
-    {% endfor %}
+  <ul class="receiving-lot-list" id="receivingLotList" data-lot-rows aria-label="Product lots">
+    {% include "partials/_checkin_lot_rows.html" %}
 
-    {% if not has_internal_main %}
+    {% if not has_internal_main and not session.inventory_mode %}
     <li class="receiving-lot-list-item lot-assignment-synthetic-main"
         data-assignment-synthetic-main
         data-assignment-lot-name="UNASSIGNED"
@@ -167,7 +112,7 @@
     <input type="hidden" name="confirm_expiry_reclassification" value="">
   </form>
 
-  <div class="receiving-lot-feedback">
+  <div class="receiving-lot-feedback view-mode"{% if session.inventory_mode %} hidden{% endif %}>
     <small class="receiving-lot-help" id="receivingLotHelp">
       Select an existing lot for check-in, or use ＋ New lot for a new shipment lot.
     </small>

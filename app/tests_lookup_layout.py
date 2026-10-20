@@ -10,7 +10,12 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
     template_root = Path(settings.BASE_DIR) / "app" / "templates"
 
     def source(self, name):
-        return (self.template_root / name).read_text(encoding="utf-8")
+        source = (self.template_root / name).read_text(encoding="utf-8")
+        if name == "product_details.html":
+            for partial in ("styles", "period", "content", "chart_script"):
+                include = "partials/_product_analysis_" + partial + ".html"
+                source = source.replace("{% include '" + include + "' %}", self.source(include))
+        return source
 
     def test_every_competing_product_lookup_is_marked_width_neutral(self):
         for template_name in (
@@ -123,6 +128,10 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
 
     def test_product_details_lookup_overlays_results_and_opens_exact_product_id(self):
         source = self.source("product_details.html")
+        self.assertIn("partials/_product_details_search_script.html", source)
+        self.assertIn("css/product-details-search.css", source)
+        source += self.source("partials/_product_details_search_script.html")
+        source += (self.template_root.parent.parent / "static/css/product-details-search.css").read_text(encoding="utf-8")
 
         self.assertIn(".product-details-lookup {", source)
         self.assertIn(".product-details-search-results {", source)
@@ -256,3 +265,17 @@ class WidthNeutralProductLookupTests(SimpleTestCase):
         self.assertIn("width: 100%;", css)
         self.assertIn("grid-template-columns: max-content minmax(280px, 1fr) max-content;", css)
         self.assertIn("min-width: 0;", css)
+
+
+class SalesProductReturnTests(SimpleTestCase):
+    def test_product_details_returns_to_sales_search_with_filters(self):
+        from django.test import RequestFactory
+        from .navigation import safe_product_details_return_url, product_return_label
+        request = RequestFactory().get('/product/1/details/')
+        origin = '/sales/?tab=details&start=2026-10-01&end=2026-10-19'
+        self.assertEqual(safe_product_details_return_url(request, origin), origin)
+        self.assertEqual(product_return_label(origin), 'Back to Sales Analytics')
+        self.assertEqual(
+            safe_product_details_return_url(request, 'https://example.com/sales/?tab=details'),
+            '/inventory/',
+        )

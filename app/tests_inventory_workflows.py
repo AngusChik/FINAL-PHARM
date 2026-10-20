@@ -229,6 +229,11 @@ class MultiLotInventoryTests(TestCase):
                 'extra_expiry_dates': ['30-11-2099'],
                 'price_per_unit': '',
                 'status': 'on',
+                'lot_id': [str(self.early.pk), str(self.late.pk)],
+                'lot_original_number': ['EARLY', 'LATE'],
+                'lot_original_expiry': [self.early.expiry_date.strftime('%d-%m-%Y'), self.late.expiry_date.strftime('%d-%m-%Y')],
+                'lot_original_quantity': ['2', '3'],
+                'lot_removed': ['0', '0'],
                 'lot_number': ['EARLY', 'LATE'],
                 'lot_expiry': [
                     self.early.expiry_date.strftime('%d-%m-%Y'),
@@ -255,8 +260,9 @@ class MultiLotInventoryTests(TestCase):
             session=session,
             change_type='error_add',
         )
-        self.assertEqual(change.quantity, 2)
-        self.assertIn('Lot-derived inline edit', change.note)
+        self.assertEqual(change.quantity, 4)
+        self.assertEqual(StockChange.objects.get(session=session, change_type='error_subtract').quantity, 2)
+        self.assertIn('Product lot quantities updated via Check-in', change.note)
 
     def test_checkin_inline_lot_rename_retargets_the_receiving_draft(self):
         session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
@@ -287,6 +293,11 @@ class MultiLotInventoryTests(TestCase):
                 'expiry_date': '',
                 'price_per_unit': '',
                 'status': 'on',
+                'lot_id': [str(self.early.pk), str(self.late.pk)],
+                'lot_original_number': ['EARLY', 'LATE'],
+                'lot_original_expiry': [self.early.expiry_date.strftime('%d-%m-%Y'), self.late.expiry_date.strftime('%d-%m-%Y')],
+                'lot_original_quantity': ['2', '3'],
+                'lot_removed': ['0', '0'],
                 'lot_number': ['RENAMED-EARLY', self.late.lot_number],
                 'lot_expiry': [
                     self.early.expiry_date.strftime('%d-%m-%Y'),
@@ -306,7 +317,8 @@ class MultiLotInventoryTests(TestCase):
         self.assertEqual(draft.lot_number, 'RENAMED-EARLY')
         self.assertEqual(draft.revision, 2)
         self.early.refresh_from_db()
-        self.assertIsNotNone(self.early.archived_at)
+        self.assertIsNone(self.early.archived_at)
+        self.assertEqual(draft.existing_lot_id, self.early.pk)
 
     def test_checkin_inline_edit_clearing_all_lots_sets_stock_to_zero(self):
         session = CheckinSession.objects.create(user=self.user, scanned_by='AB')
@@ -328,9 +340,14 @@ class MultiLotInventoryTests(TestCase):
                 'expiry_date': '31-12-2099',
                 'price_per_unit': '',
                 'status': 'on',
-                'lot_number': [''],
-                'lot_expiry': [''],
-                'lot_quantity': [''],
+                'lot_id': [str(self.early.pk), str(self.late.pk)],
+                'lot_original_number': ['EARLY', 'LATE'],
+                'lot_original_expiry': [self.early.expiry_date.strftime('%d-%m-%Y'), self.late.expiry_date.strftime('%d-%m-%Y')],
+                'lot_original_quantity': ['2', '3'],
+                'lot_removed': ['1', '1'],
+                'lot_number': ['EARLY', 'LATE'],
+                'lot_expiry': ['', ''],
+                'lot_quantity': ['2', '3'],
             },
         )
 
@@ -375,6 +392,11 @@ class MultiLotInventoryTests(TestCase):
             'expiry_date': '',
             'price_per_unit': '',
             'status': 'on',
+                'lot_id': [str(self.early.pk), str(self.late.pk)],
+                'lot_original_number': ['EARLY', 'LATE'],
+                'lot_original_expiry': [self.early.expiry_date.strftime('%d-%m-%Y'), self.late.expiry_date.strftime('%d-%m-%Y')],
+                'lot_original_quantity': ['2', '3'],
+                'lot_removed': ['0', '0'],
             'lot_number': ['EARLY', 'LATE'],
             'lot_expiry': [
                 self.early.expiry_date.strftime('%d-%m-%Y'),
@@ -389,9 +411,7 @@ class MultiLotInventoryTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Stock changed to 8 while you were editing')
-        self.assertContains(response, 'the lot quantities total 5')
-        self.assertContains(response, 'data-lot-sync-error')
+        self.assertContains(response, 'stock changed while this page was open')
         self.product.refresh_from_db()
         self.early.refresh_from_db()
         self.late.refresh_from_db()
@@ -399,8 +419,8 @@ class MultiLotInventoryTests(TestCase):
         self.assertEqual(self.early.quantity_on_hand, 5)
         self.assertEqual(self.late.quantity_on_hand, 3)
 
-        # Once the user accounts for the direct adjustment in the lot rows,
-        # the same stale baseline is accepted without changing stock again.
+        # A reload provides the current per-lot baseline before retrying.
+        payload['lot_original_quantity'] = ['5', '3']
         payload['lot_quantity'] = ['5', '3']
         response = client.post(
             reverse('checkin_edit_product', args=[session.pk, self.product.pk]),
@@ -531,7 +551,7 @@ class MultiLotInventoryTests(TestCase):
         self.assertContains(response, 'Product lots')
         self.assertContains(
             response,
-            'Select the supplier lot before scanning or receiving',
+            'Select an existing lot for check-in',
         )
         self.assertContains(response, 'Selected for check-in')
         self.assertContains(response, self.early.expiry_date.strftime('%d-%m-%Y'))
@@ -981,6 +1001,8 @@ class PermissionAndRecoveryTests(TestCase):
                 'quantity_in_stock': '999', 'category': str(self.category.pk),
                 'unit_size': '', 'description': '', 'expiry_date': '',
                 'price_per_unit': '', 'status': 'on',
+                'lot_id': str(self.product_lot.pk), 'lot_original_number': 'PERM-LOT',
+                'lot_original_expiry': '', 'lot_original_quantity': '4', 'lot_removed': '0',
                 'lot_number': 'PERM-LOT', 'lot_expiry': '', 'lot_quantity': '4',
             },
         )

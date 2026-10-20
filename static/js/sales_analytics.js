@@ -32,8 +32,15 @@
       tab.tabIndex = active ? 0 : -1;
     });
     panels.forEach(panel => { panel.hidden = panel.id !== 'sa-panel-' + key; });
-    filterPanel.hidden = key === 'suggestions';
-    page.querySelector('.sa-period-label').hidden = key === 'suggestions';
+    filterPanel.hidden = ['suggestions', 'details'].includes(key);
+    page.querySelector('.sa-period-label').hidden = ['suggestions', 'details'].includes(key);
+    if (key === 'details') {
+      const lookup = document.getElementById('productDetailsLookup');
+      const returnURL = new URL(window.location.href);
+      returnURL.searchParams.set('tab', 'details');
+      returnURL.hash = '';
+      lookup.dataset.returnTo = returnURL.pathname + returnURL.search;
+    }
     activeInput.value = key;
     if (updateURL) {
       const url = new URL(window.location.href);

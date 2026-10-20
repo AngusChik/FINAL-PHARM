@@ -51,9 +51,10 @@
   .lot-row-add { min-height: 42px; border: 1px dashed var(--primary, #4f46e5); border-radius: 9px; background: #eef2ff; color: #3730a3; padding: .55rem .85rem; font-weight: 750; cursor: pointer; }
   @media (max-width: 640px) {
     .lot-editor-head { display: none; }
-    .lot-editor-row { grid-template-columns: 1fr 1fr 36px; }
-    .lot-editor-row label:first-child { grid-column: 1 / -1; padding-right: 42px; }
-    .lot-editor-row .lot-row-remove { grid-column: 3; grid-row: 1; }
+    .lot-editor-row { grid-template-columns: minmax(0, 1fr) 36px; }
+    .lot-editor-row > label { min-width: 0; grid-column: 1 / -1; }
+    .lot-editor-row > label:first-of-type { grid-column: 1; grid-row: 1; }
+    .lot-editor-row .lot-row-remove, .lot-editor-row .lot-row-locked { grid-column: 2; grid-row: 1; }
   }
 </style>
 
@@ -67,9 +68,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var clone = template.content.firstElementChild.cloneNode(true);
       rows.appendChild(clone);
       var dateInput = clone.querySelector('.flatpickr-date');
-      if (dateInput && window.flatpickr) {
-        window.flatpickr(dateInput, { dateFormat: 'd-m-Y', allowInput: true });
-      }
+      if (dateInput) window.uiExpiryDates.init(dateInput);
       return clone;
     }
     if (

@@ -27,22 +27,31 @@
 
   function ensureToastStack() {
     var stack = document.querySelector('[data-ui-toast-stack]');
-    if (stack) return stack;
     if (!document.body) return null;
 
-    stack = document.createElement('div');
-    stack.className = 'ui-toast-stack toast-stack';
-    stack.setAttribute('data-ui-toast-stack', '');
-    stack.setAttribute('aria-live', 'polite');
-    stack.setAttribute('aria-relevant', 'additions');
-    stack.setAttribute('aria-atomic', 'false');
-    document.body.appendChild(stack);
+    if (!stack) {
+      stack = document.createElement('div');
+      stack.className = 'ui-toast-stack toast-stack';
+      stack.setAttribute('data-ui-toast-stack', '');
+      stack.setAttribute('aria-live', 'polite');
+      stack.setAttribute('aria-relevant', 'additions');
+      stack.setAttribute('aria-atomic', 'false');
+      document.body.appendChild(stack);
+    }
+    var host = document.querySelector('[data-ui-toast-host]');
+    if (host && stack.parentNode !== host) host.appendChild(stack);
     return stack;
   }
 
   function removeToast(toast) {
     if (!toast || !toast.parentNode) return;
+    var stack = toast.parentNode;
     toast.remove();
+    var next = stack._uiToastQueue && stack._uiToastQueue.shift();
+    if (next) {
+      stack.appendChild(next.toast);
+      armToast(next.toast, next.duration);
+    }
   }
 
   function hideToast(toast) {
@@ -55,6 +64,15 @@
 
   function armToast(toast, duration) {
     if (!toast || toast.hasAttribute('data-ui-toast-armed')) return toast;
+    var stack = toast.parentNode;
+    if (stack && stack.closest('[data-ui-toast-queue]') &&
+        stack.querySelector('[data-ui-toast-armed]')) {
+      // Compact hosts show each notice for its full duration, one at a time.
+      stack._uiToastQueue = stack._uiToastQueue || [];
+      stack._uiToastQueue.push({ toast: toast, duration: duration });
+      toast.remove();
+      return toast;
+    }
     toast.setAttribute('data-ui-toast-armed', 'true');
 
     var close = toast.querySelector('[data-ui-toast-dismiss], .toast-close');
@@ -212,6 +230,7 @@
   }
 
   function initialize() {
+    ensureToastStack();
     document.querySelectorAll('[data-ui-toast-stack] .ui-toast, [data-ui-toast-stack] .toast-msg').forEach(function (toast) {
       armToast(toast);
     });

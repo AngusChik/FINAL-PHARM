@@ -1117,7 +1117,11 @@ function Start-Production([hashtable]$config) {
                 "--port=8000",
                 "--threads=4",
                 "--trusted-proxy=127.0.0.1",
-                "--trusted-proxy-headers=x-forwarded-proto",
+                "--trusted-proxy-count=1",
+                # Start-Process joins this array into a Windows command line.
+                # Preserve the header list as ONE argument, including its space.
+                "--trusted-proxy-headers=`"x-forwarded-for x-forwarded-proto`"",
+                "--clear-untrusted-proxy-headers",
                 "inventory.wsgi:application"
             ) `
             -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru `

@@ -1,0 +1,165 @@
+<script>
+  (function () {
+    const typeInput = document.getElementById('chartTypeInput');
+    const btnBar = document.getElementById('btnBar');
+    const btnLine = document.getElementById('btnLine');
+    let chart = null;
+
+    function setType(type) {
+      typeInput.value = type;
+      btnBar.classList.toggle('active', type === 'bar');
+      btnLine.classList.toggle('active', type === 'line');
+      btnBar.setAttribute('aria-pressed', type === 'bar' ? 'true' : 'false');
+      btnLine.setAttribute('aria-pressed', type === 'line' ? 'true' : 'false');
+      renderChart(type);
+      const current = new URL(window.location.href);
+      current.searchParams.set('type', type);
+      window.history.replaceState(window.history.state, '', current);
+      const editLink = document.querySelector('.product-details-edit-btn');
+      if (editLink) {
+        const editUrl = new URL(editLink.href);
+        editUrl.searchParams.set('next', current.pathname + current.search + current.hash);
+        editLink.href = editUrl.toString();
+      }
+    }
+
+    btnBar.addEventListener('click', function () { setType('bar'); });
+    btnLine.addEventListener('click', function () { setType('line'); });
+
+    const periods = {{ periods|safe }};
+    const sold = {{ sold|safe }};
+    const restocked = {{ restocked|safe }};
+    const expired = {{ expired|safe }};
+    const missedSales = {{ missed_sales|safe }};
+    const historicalStock = {{ historical_stock_levels|safe }};
+    const canvas = document.getElementById('trendChart');
+    function renderChart(chartType) {
+      if (!canvas || typeof Chart === 'undefined') return;
+      const visibility = chart ? chart.data.datasets.map(function (_, index) { return chart.isDatasetVisible(index); }) : [];
+      if (chart) chart.destroy();
+
+      window.pharmacyTypography.applyChartDefaults(Chart);
+
+      chart = new Chart(canvas.getContext('2d'), {
+        type: chartType,
+        data: {
+          labels: periods,
+          datasets: [
+            {
+              label: 'Net Sold',
+              data: sold,
+              backgroundColor: chartType === 'bar' ? 'rgba(231,111,81,0.7)' : 'transparent',
+              borderColor: 'rgba(231,111,81,1)',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              tension: 0.3,
+              order: 1
+            },
+            {
+              label: 'Stock In',
+              data: restocked,
+              backgroundColor: chartType === 'bar' ? 'rgba(13,148,136,0.58)' : 'transparent',
+              borderColor: 'rgba(13,148,136,1)',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              tension: 0.3,
+              order: 2
+            },
+            {
+              label: 'Expired',
+              data: expired,
+              backgroundColor: chartType === 'bar' ? 'rgba(153,102,255,0.6)' : 'transparent',
+              borderColor: 'rgba(153,102,255,1)',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              tension: 0.3,
+              order: 3
+            },
+            {
+              label: 'Missed Sales (Stockouts)',
+              data: missedSales,
+              backgroundColor: chartType === 'bar' ? 'rgba(245,158,11,0.65)' : 'transparent',
+              borderColor: 'rgba(245,158,11,1)',
+              borderWidth: 2,
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              pointBackgroundColor: 'rgba(245,158,11,1)',
+              tension: 0.3,
+              order: 4
+            },
+            {
+              label: 'Stock Level (End of Period)',
+              data: historicalStock,
+              backgroundColor: chartType === 'bar' ? 'rgba(100,100,255,0.4)' : 'transparent',
+              borderColor: 'rgba(50,50,200,1)',
+              borderWidth: 2.5,
+              borderDash: [5, 5],
+              fill: false,
+              pointRadius: chartType === 'line' ? 5 : 0,
+              pointBackgroundColor: 'rgba(50,50,200,1)',
+              tension: 0.4,
+              type: chartType === 'bar' ? 'line' : chartType,
+              yAxisID: 'y',
+              order: 5
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            tooltip: {
+              enabled: true,
+              titleFont: { size: 13, weight: '700' },
+              bodyFont: { size: 13, weight: '600' },
+              callbacks: {
+                label: function (context) {
+                  return (context.dataset.label || '') + ': ' + context.parsed.y;
+                }
+              }
+            },
+            legend: {
+              position: 'top',
+              display: true,
+              labels: {
+                color: '#334155',
+                usePointStyle: true,
+                boxWidth: 10,
+                padding: 9,
+                font: { size: window.pharmacyTypography.size(11), weight: '600' }
+              }
+            },
+            title: {
+              display: true,
+              text: 'Sales, demand and end-of-period stock',
+              color: '#0f172a',
+              font: { size: window.pharmacyTypography.size(12), weight: '700' },
+              padding: { bottom: 8 }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, color: '#334155', font: { size: window.pharmacyTypography.size(11), weight: '600' } },
+              title: { display: true, text: 'Units', color: '#334155', font: { size: window.pharmacyTypography.size(11), weight: '700' } }
+            },
+            x: {
+              ticks: { color: '#334155', maxRotation: 0, autoSkip: true, font: { size: window.pharmacyTypography.size(11), weight: '600' } },
+              title: { display: true, text: 'Period', color: '#334155', font: { size: window.pharmacyTypography.size(11), weight: '700' } }
+            }
+          }
+        }
+      });
+      visibility.forEach(function (visible, index) { chart.setDatasetVisibility(index, visible); });
+      if (visibility.length) chart.update('none');
+    }
+    renderChart("{{ chart_type }}");
+    document.querySelector('.sa-page')?.addEventListener('sales:tabchange', function (event) {
+      if (event.detail.key === 'details' && chart) requestAnimationFrame(function () { chart.resize(); });
+    });
+  })();
+</script>

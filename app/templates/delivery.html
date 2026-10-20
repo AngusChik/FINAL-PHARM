@@ -294,9 +294,19 @@
       title: title,
       content: entryForm,
       initialFocus: initialFocus,
-      onClose: function() { entryForms.appendChild(entryForm); }
+      onClose: function() {
+        entryForm.deliveryDialog = null;
+        entryForms.appendChild(entryForm);
+      }
     });
+    entryForm.deliveryDialog = dialog;
     dialog.footer.remove();
+  }
+
+  function setEntryBusy(entryForm, busy) {
+    entryForm.dataset.saving = busy ? 'true' : 'false';
+    entryForm.setAttribute('aria-busy', String(busy));
+    entryForm.querySelector('button[type="submit"]').disabled = busy;
   }
   document.getElementById('delivery-open-checkin').addEventListener('click', function() {
     openEntryForm(form, 'Check In', '#ci-barcode');
@@ -418,13 +428,16 @@
     historyEmpty.style.display = historyTbody.children.length ? 'none' : '';
   }
 
-  // ── Check-in (AJAX — stays on the page for a fast scan loop) ──
+  // Close the submitted dialog only after the server confirms success.
   [ciBarcode, ciFirst, ciLast].forEach(function(el, i) {
     el.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); [ciFirst, ciLast, ciComment][i].focus(); } });
   });
   ciComment.addEventListener('keydown', function(e) { if (e.key === 'Enter') { e.preventDefault(); form.requestSubmit(); } });
   form.addEventListener('submit', function(e) {
     e.preventDefault();
+    if (form.dataset.saving === 'true') return;
+    var submittedDialog = form.deliveryDialog;
+    setEntryBusy(form, true);
     post({ action: 'checkin', barcode: ciBarcode.value.trim(), first_name: ciFirst.value.trim(),
            last_name: ciLast.value.trim(), comment: ciComment.value.trim() })
       .then(function(d) {
@@ -432,11 +445,12 @@
         var tr = onsiteRow(d); onsiteTbody.insertBefore(tr, onsiteTbody.firstChild); tickOne(tr);
         showDeliveryToast(d.name + ' checked in', 'success');
         form.reset();
-        if (form.closest('.ui-dialog')) ciBarcode.focus();
+        if (submittedDialog) submittedDialog.close('saved');
         bump(onsiteBadge, 1); bump(kpiOnsite, 1); bump(kpiInToday, 1);
         syncEmpties(); applyOnsiteSearch();
       })
-      .catch(function() { showDeliveryToast('Check-in failed', 'error'); });
+      .catch(function() { showDeliveryToast('Check-in failed', 'error'); })
+      .finally(function() { setEntryBusy(form, false); });
   });
 
   // ── Check-out ──
@@ -453,12 +467,18 @@
   window.deliveryCheckout = function(btn) { post({ action: 'checkout', record_id: btn.getAttribute('data-record-id') }).then(handleCheckout); };
   checkoutForm.addEventListener('submit', function(e) {
     e.preventDefault();
+    if (checkoutForm.dataset.saving === 'true') return;
     var bc = coBarcode.value.trim(); if (!bc) return;
+    var submittedDialog = checkoutForm.deliveryDialog;
+    setEntryBusy(checkoutForm, true);
     post({ action: 'checkout', barcode: bc }).then(function(d) {
       handleCheckout(d);
-      if (d.status === 'ok') coBarcode.value = '';
-      if (checkoutForm.closest('.ui-dialog')) coBarcode.focus();
-    }).catch(function() { showDeliveryToast('Checkout failed', 'error'); });
+      if (d.status === 'ok') {
+        checkoutForm.reset();
+        if (submittedDialog) submittedDialog.close('saved');
+      }
+    }).catch(function() { showDeliveryToast('Checkout failed', 'error'); })
+      .finally(function() { setEntryBusy(checkoutForm, false); });
   });
 
   // ── Undo ──

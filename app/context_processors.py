@@ -430,6 +430,8 @@ def ui_context(request):
         f'PU{pu_slot}' if pu_slot
         else (request.user.get_full_name() or request.user.get_username())
     )
+    if not request.user.is_staff and request.session.get('device_type') == 'phone':
+        identity_label = f'{request.user.get_username()} phone'
     return {
         **environment_context,
         'ui_compact_spacing': compact_spacing,
