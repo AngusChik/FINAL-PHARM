@@ -124,8 +124,8 @@ class SitewideContentFitContracts(SimpleTestCase):
             styles,
             r"body\.app-shell \.nav-links li a \{[^}]+font-size: calc\(0\.9525rem \* var\(--ui-type-scale, 1\)\);",
         )
-        self.assertIn("tokens.css' %}?v=20260925-type1", base)
-        self.assertIn("ui-system.css' %}?v=20260925-type1", base)
+        self.assertRegex(base, r"tokens\.css' %\}\?v=[\w-]+")
+        self.assertRegex(base, r"ui-system\.css' %\}\?v=[\w-]+")
 
     def test_confirmation_rows_reflow_without_clipping_on_phones(self):
         checkout = self._template("checkout_success.html")

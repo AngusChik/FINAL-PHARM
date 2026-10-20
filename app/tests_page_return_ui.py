@@ -161,7 +161,7 @@ class PageReturnAssetContractTests(SimpleTestCase):
             name: self.source('app/templates/' + name)
             for name in ('base.html', 'ordering_sheet_embed.html')
         }
-        for asset in ('css/ui-system.css', 'js/ui-system.js'):
+        for asset in ('css/ui-system.css', 'css/compact-spacing.css', 'js/ui-system.js'):
             with self.subTest(asset=asset):
                 pattern = (
                     r'''{%\s*static\s+['"]''' + re.escape(asset)
