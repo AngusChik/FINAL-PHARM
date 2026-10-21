@@ -19,26 +19,39 @@ It is intended for operators troubleshooting a workflow and for future developme
 | Labels | Use | Use |
 | Delivery | Use normal workflow, including undo checkout | Use normal workflow and destructive controls |
 | Recently Purchased | View | Add, edit, or remove |
-| Ordering sheet | Add/edit shared requests and comments; no deletion | Manage lifecycle; only staff accounts can delete entries |
+| Ordering sheet | Add/edit shared requests and comments; move own or shared rows to Recovery | Manage lifecycle and move rows to Recovery |
 | Supplier purchase-order tracking | Passkey prompt | Use |
 | Recovery | Passkey prompt | Use |
 | Reports, analytics, and administrative history | Passkey prompt | Use |
 
 An unlocked admin passkey grants protected workflow access for the configured
-session lifetime. It does not change the user's account role; Ordering Sheet
-deletion requires a staff account.
+session lifetime. It does not change the user's account role. Any signed-in PU
+user can remove individual or selected Ordering Sheet rows to Recovery without
+an admin passkey. Status changes, manual Google Sheets pulls, and access to
+Recovery still require staff access or an unlocked admin passkey.
 
 ### Shared PU workstation identities
 
-- Staff on every regular device enter the same visible username, `PU`, and the
-  same PU password.
-- The backend assigns the lowest free live identity from `PU1` through `PU6`.
-  The identity is tied to that browser session and appears in the navigation,
-  presence indicators, login audit, page-lock messages, and Active Sessions.
-- A seventh PU device is refused until a PU session logs out or its heartbeat is
-  stale. Stale identities are reclaimed automatically.
-- Admin sessions are separate from the six-PU pool. Signing in as an admin does
-  not consume a PU identity or disconnect one of the six PU devices.
+- Staff on every regular computer or phone enter the same visible username,
+  `PU`, and the same PU password.
+- The default limits are six PU computers (`MAX_PU_SESSIONS=6`) plus four
+  additional phones (`MAX_PU_PHONE_SESSIONS=4`). An explicit `.env` setting
+  overrides its default; update an existing phone limit to `4` and restart
+  Pharmacy to use the four-phone allowance.
+- The backend assigns each computer the lowest free live identity from `PU1`
+  through `PU6`. The identity is tied to that browser session and appears in the
+  navigation, presence indicators, login audit, page-lock messages, and Active
+  Sessions. Phones connected through **Connect Phone** use their separate
+  allowance and do not consume a numbered computer identity.
+- A seventh computer or fifth phone is refused without disconnecting existing
+  sessions. Logging out frees that session's place; stale or expired sessions
+  are reclaimed automatically.
+- Re-login replaces only the browser presenting its existing session cookie.
+  Browsers sharing an IP address remain separate. A browser without its old
+  cookie needs a free place even if it runs on the same computer.
+- Phone sessions expire after two hours by default (`PHONE_SESSION_AGE=7200`).
+  Admin sessions remain separate from both PU allowances and do not disconnect
+  signed-in PU computers or phones.
 - The durable Django account remains `PU`; the numbered distinction identifies
   the live device/session rather than requiring six user-managed passwords.
 

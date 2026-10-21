@@ -37,7 +37,7 @@ class OrderingSheetPUCommentTests(TestCase):
                     response = self.client.get(url)
                     self.assertEqual(response.status_code, 200)
                     self.assertFalse(response.context['can_administer'])
-                    self.assertFalse(response.context['can_delete_entries'])
+                    self.assertTrue(response.context['can_delete_entries'])
                     html = response.content.decode()
                     start = html.index(f'<tr data-entry-id="{entry.pk}"')
                     row = html[start:html.index('</tr>', start)]
@@ -45,10 +45,10 @@ class OrderingSheetPUCommentTests(TestCase):
                     self.assertIn('class="os-note-form"', row)
                     self.assertNotIn('<select name="status"', row)
                     self.assertIn('class="edit-btn os-edit-btn"', row)
-                    self.assertNotIn('name="action" value="delete"', row)
-                    self.assertNotIn('class="os-check os-row-check"', row)
-                    self.assertNotIn('id="os-select-all"', html)
-                    self.assertNotIn('id="os-bulk-delete"', html)
+                    self.assertIn('name="action" value="delete"', row)
+                    self.assertIn('class="os-check os-row-check"', row)
+                    self.assertIn('id="os-select-all"', html)
+                    self.assertIn('id="os-bulk-delete"', html)
 
                     for comment in ('Please call before pickup.', 'Please call & confirm the quantity.'):
                         response = self.client.post(url, {
@@ -122,14 +122,7 @@ class OrderingSheetPUCommentTests(TestCase):
         })
         self.assertEqual(OrderingSheetEntry.objects.values().get(pk=entry.pk), before)
 
-    def test_pu_cannot_delete_own_or_shared_rows_even_with_an_admin_passkey(self):
-        own = self.create_entry()
-        own.created_by = self.pu
-        own.status = OrderingSheetEntry.STATUS_PENDING
-        own.save(update_fields=['created_by', 'status'])
-        shared = self.create_entry()
-        before = list(OrderingSheetEntry.objects.filter(pk__in=[own.pk, shared.pk]).order_by('pk').values())
-
+    def test_pu_can_delete_own_and_shared_rows_with_or_without_a_passkey(self):
         for unlocked in (False, True):
             session = self.client.session
             if unlocked:
@@ -139,25 +132,28 @@ class OrderingSheetPUCommentTests(TestCase):
             session.save()
             for suffix in ('', '?embed=1'):
                 with self.subTest(unlocked=unlocked, suffix=suffix):
+                    own = self.create_entry()
+                    own.created_by = self.pu
+                    own.save(update_fields=['created_by'])
+                    shared = self.create_entry()
                     response = self.client.get(f'{self.url}{suffix}')
-                    self.assertFalse(response.context['can_delete_entries'])
-                    html = response.content.decode()
-                    self.assertNotIn('name="action" value="delete"', html)
-                    self.assertNotIn('id="os-bulk-delete"', html)
-                    self.assertNotIn('id="os-select-all"', html)
-                    self.assertNotIn('class="os-check os-row-check"', html)
-                    for payload in (
-                        {'action': 'delete', 'entry_id': own.pk},
-                        {'action': 'delete', 'entry_id': shared.pk},
-                        {'action': 'delete_selected', 'entry_ids': f'{own.pk},{shared.pk}'},
+                    self.assertTrue(response.context['can_delete_entries'])
+                    for marker in ('name="action" value="delete"', 'id="os-bulk-delete"',
+                                   'id="os-select-all"', 'class="os-check os-row-check"'):
+                        self.assertContains(response, marker)
+                    for entry, payload in (
+                        (own, {'action': 'delete', 'entry_id': own.pk}),
+                        (shared, {'action': 'delete_selected', 'entry_ids': str(shared.pk)}),
                     ):
-                        response = self.client.post(f'{self.url}{suffix}', payload, follow=True)
-                        self.assertContains(response, 'Only staff accounts can delete ordering-sheet entries.')
-                        self.assertEqual(
-                            list(OrderingSheetEntry.objects.filter(pk__in=[own.pk, shared.pk]).order_by('pk').values()),
-                            before,
-                        )
-        self.assertFalse(UserAction.objects.filter(action='ordering_delete').exists())
+                        response = self.client.post(f'{self.url}{suffix}', payload)
+                        self.assertRedirects(response, f'{self.url}{suffix}', fetch_redirect_response=False)
+                        entry.refresh_from_db()
+                        self.assertTrue(entry.is_deleted)
+                        self.assertIsNotNone(entry.deleted_at)
+                        self.assertEqual(entry.deleted_by_id, self.pu.pk)
+                        self.assertTrue(UserAction.objects.filter(
+                            user=self.pu, action='ordering_delete', target=entry.name,
+                        ).exists())
 
     def test_staff_can_still_remove_single_and_selected_entries_to_recovery(self):
         self.client.force_login(self.owner)

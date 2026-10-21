@@ -108,7 +108,7 @@
 
 .sa-page .sa-tabs {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 16px;
   padding: 6px;
@@ -192,13 +192,13 @@
 .sa-page .sa-cost-banner { margin-bottom: 12px; font-size: calc(0.875rem * var(--ui-type-scale, 1)); }
 
 /* The shared compact-card rules target the former direct-child KPI strip. */
-body.app-shell .sa-page .sa-panel .kpi-strip {
+body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-strip {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 14px;
 }
 
-body.app-shell .sa-page .sa-panel .kpi-card {
+body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-card {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -209,19 +209,19 @@ body.app-shell .sa-page .sa-panel .kpi-card {
   overflow-wrap: anywhere;
 }
 
-body.app-shell .sa-page .sa-panel .kpi-label {
+body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-label {
   margin: 0 0 4px;
   font-size: calc(0.75rem * var(--ui-type-scale, 1));
   line-height: 1.2;
 }
 
-body.app-shell .sa-page .sa-panel .kpi-value {
+body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-value {
   margin: 0;
   font-size: calc(clamp(1.125rem, 1.65vw, 1.5rem) * var(--ui-type-scale, 1));
   line-height: 1.15;
 }
 
-body.app-shell .sa-page .sa-panel .kpi-sub {
+body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-sub {
   margin: 4px 0 0;
   font-size: calc(0.75rem * var(--ui-type-scale, 1));
   line-height: 1.25;
@@ -311,7 +311,7 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
 @media (max-width: 1200px) {
   .sa-page .sa-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .sa-page .sa-tab { min-height: 54px; }
-  body.app-shell .sa-page .sa-panel .kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 900px) {
@@ -383,9 +383,9 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
   .sa-page .sa-tab { box-sizing: border-box; min-height: 44px; padding: 8px 10px; }
   .sa-page .sa-tab-label { font-size: calc(0.875rem * var(--ui-type-scale, 1)); }
   .sa-page .sa-tab-meta { display: none; }
-  body.app-shell .sa-page .sa-panel .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  body.app-shell .sa-page .sa-panel .kpi-card { min-height: 78px; padding: 9px 10px; }
-  body.app-shell .sa-page .sa-panel .kpi-value { font-size: calc(1.25rem * var(--ui-type-scale, 1)); }
+  body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-card { min-height: 78px; padding: 9px 10px; }
+  body.app-shell .sa-page .sa-panel:not(#sa-panel-details) .kpi-value { font-size: calc(1.25rem * var(--ui-type-scale, 1)); }
   .sa-page .sa-card-head { padding: 10px 12px; font-size: calc(0.75rem * var(--ui-type-scale, 1)); }
   .sa-page .sa-card-body { padding: 8px; }
   .sa-page .sa-chart-products { height: 400px; }
@@ -406,3 +406,17 @@ body.app-shell .sa-page .sa-panel .kpi-sub {
   .sa-page .sa-card { break-inside: avoid; }
   .sa-page .sa-panel-intro { break-after: avoid; }
 }
+
+/* Selected product analysis uses the same layout as the standalone record. */
+.sa-page .sa-product-lookup { z-index: 40; }
+.sa-page .sales-product-analysis { max-width: none; padding-right: 0; }
+.sa-page .sales-analysis-tools { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.sa-page .sales-product-analysis .kpi-card { border-left-width: 3px; }
+.sa-page .sales-product-analysis #kpi-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 980px) {
+  .sa-page .sales-product-analysis #kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.sa-page .sales-details-toolbar.has-selection { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.sa-page .sales-details-toolbar.has-selection .sa-product-lookup { flex: 1 1 300px; max-width: none; margin: 0; }
+.sa-page .sales-details-toolbar.has-selection .sales-analysis-tools { margin: 0; }

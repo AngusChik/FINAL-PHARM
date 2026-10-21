@@ -19,6 +19,9 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         cls.order_form = (root / "app" / "templates" / "order_form.html").read_text(
             encoding="utf-8"
         )
+        cls.purchase_css = (root / "static" / "css" / "purchase-compact.css").read_text(
+            encoding="utf-8"
+        )
         cls.checkout = (root / "app" / "templates" / "checkout.html").read_text(
             encoding="utf-8"
         )
@@ -57,7 +60,7 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         self.assertNotIn('class="workflow-guide-button"', self.base)
         self.assertIn('class="mobile-utility-bar"', self.base)
         self.assertIn('data-ui-open-shortcuts', self.base)
-        self.assertIn("?v=20260907-ordering-toolbar1", self.base)
+        self.assertRegex(self.base, r"js/ui-system\.js' %\}\?v=[\w-]+")
 
     def test_order_summary_count_moves_beside_items_and_actions_fill_section(self):
         for source in (self.order_form, self.checkout):
@@ -95,7 +98,7 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         self.assertIn('grid-template-areas: "main actions";', self.order_form)
         self.assertIn(".order-item-main {", self.order_form)
         self.assertIn(
-            "grid-template-rows: minmax(72px, auto) minmax(112px, 1fr) auto;",
+            "grid-template-rows: minmax(72px, auto) minmax(112px, 1fr);",
             self.order_form,
         )
 
@@ -104,10 +107,12 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         price = self.order_form.index('<div class="col-price item-price-section', main)
         barcode = self.order_form.index('<div class="barcode-display"', main)
         actions = self.order_form.index('<div class="col-actions item-right">', main)
+        expiry = self.order_form.index('<div class="expiry-panel">', actions)
         self.assertLess(main, name)
         self.assertLess(name, price)
-        self.assertLess(price, barcode)
-        self.assertLess(barcode, actions)
+        self.assertLess(price, actions)
+        self.assertLess(actions, expiry)
+        self.assertLess(expiry, barcode)
         self.assertNotIn("stock-badge-big", self.order_form)
         self.assertNotIn("stock-badge-label", self.order_form)
         self.assertIn(
@@ -124,7 +129,7 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         self.assertIn("font-size: calc(clamp(59.8px, 16.1vw, 82.8px) * var(--ui-type-scale, 1));", self.order_form)
         self.assertNotIn("font-size: 94px;", self.order_form)
         self.assertIn(
-            "grid-template-columns: 1fr;\n        grid-template-rows: auto minmax(0, 1fr);",
+            "grid-template-columns: 1fr;\n        grid-template-rows: auto auto minmax(0, 1fr) auto;",
             self.order_form,
         )
         self.assertIn(
@@ -162,6 +167,10 @@ class CompactOverviewLayoutTests(SimpleTestCase):
             '<span class="item-tax-pill" aria-label="Taxable item" title="Taxable">TAX</span>',
             self.order_form,
         )
+        self.assertIn(
+            '<span class="item-tax-pill no-tax" aria-label="Tax-free item" title="No tax">NO TAX</span>',
+            self.order_form,
+        )
         price_value = self.order_form.index('<div class="item-price">', price)
         tax_pill = self.order_form.index('<span class="item-tax-pill"', price_value)
         self.assertLess(price_value, tax_pill)
@@ -192,15 +201,18 @@ class CompactOverviewLayoutTests(SimpleTestCase):
             main_grid.group("body"),
         )
         self.assertIn(
-            "grid-template-rows: auto minmax(0, 1fr);",
+            "grid-template-rows: auto;",
             main_grid.group("body"),
         )
 
         header = self.order_form.index('<div class="items-header">')
         container = self.order_form.index('<div class="items-container">', header)
-        summary = self.order_form.index('<div class="ot-box">', container)
+        summary = self.order_form.index('<div class="ot-box">')
+        self.assertLess(summary, header)
         self.assertLess(header, container)
-        self.assertLess(container, summary)
+        self.assertIn("css/purchase-compact.css", self.order_form)
+        self.assertIn(".purchase-left-stack", self.purchase_css)
+        self.assertIn("var(--ui-development-banner-height, 0px)", self.purchase_css)
         self.assertIn("<h2>Order Items</h2>", self.order_form[header:container])
         self.assertIn(
             'class="items-header-count">{{ order_items|length }} item{{ order_items|length|pluralize }}',
@@ -224,7 +236,7 @@ class CompactOverviewLayoutTests(SimpleTestCase):
             self.order_form,
         )
 
-    def test_purchase_timer_animates_on_lookup_card_bottom_edge(self):
+    def test_purchase_timer_is_time_only_beside_scan_heading_with_top_progress(self):
         lookup = self.order_form.index(
             '<div class="control-box ui-workflow-lookup-bar" id="search-box"'
         )
@@ -234,14 +246,20 @@ class CompactOverviewLayoutTests(SimpleTestCase):
         self.assertLess(timer, workspace)
         self.assertNotIn('<div id="orderTimerRegion">', self.order_form[:lookup])
 
-        self.assertIn("#search-box:has(#autoSubmitBar) {", self.order_form)
-        self.assertIn("#search-box > #orderTimerRegion {", self.order_form)
+        status = self.order_form.index('<div class="scan-product-status">', lookup)
+        ready = self.order_form.index('<span class="hint-ready">Ready</span>', status)
+        search = self.order_form.index('id="product_lookup"', timer)
+        self.assertLess(status, ready)
+        self.assertLess(ready, timer)
+        self.assertLess(timer, search)
+        self.assertIn('role="timer" aria-label="Time until automatic submission"', self.order_form)
+        self.assertNotIn("Auto-submit in ", self.order_form[lookup:search])
+        self.assertNotIn('class="auto-submit-icon"', self.order_form[lookup:search])
+        self.assertIn("#search-box #orderTimerRegion {", self.order_form)
+        self.assertNotIn("padding-bottom: 42px;", self.order_form)
+        self.assertNotIn("padding-bottom: 44px;", self.order_form)
         self.assertIn(
-            "position: absolute;\n        inset: auto 0 0;",
-            self.order_form,
-        )
-        self.assertIn(
-            ".auto-submit-progress {\n        position: absolute;\n        inset: auto 0 0;",
+            ".auto-submit-progress {\n        position: absolute;\n        inset: 0 0 auto;",
             self.order_form,
         )
         self.assertIn("transition: width 1s linear;", self.order_form)

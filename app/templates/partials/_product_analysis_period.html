@@ -1,0 +1,37 @@
+      <details class="product-period-control" id="productPeriodControl">
+        <summary aria-label="Change analysis period">
+          <span class="period-summary-copy">
+            <span class="period-summary-label">{% if granularity == 'week' %}Weekly{% else %}Monthly{% endif %} analysis</span>
+            <span class="period-summary-range">{{ start_date|date:"M j, Y" }} – {{ end_date|date:"M j, Y" }}</span>
+          </span>
+          <span class="period-chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <form method="get" id="productDetailsFilters">
+          {% if sales_analysis %}
+          <input type="hidden" name="tab" value="details">
+          <input type="hidden" name="product_id" value="{{ product.product_id }}">
+          <input type="hidden" name="gran" value="{{ gran }}">
+          {% if ignore_snacks %}<input type="hidden" name="ignore_snacks" value="1">{% endif %}
+          {% if ignore_braces %}<input type="hidden" name="ignore_braces" value="1">{% endif %}
+          {% endif %}
+          <input type="hidden" name="return_to" value="{{ return_to }}">
+          <input type="hidden" name="type" id="chartTypeInput" value="{{ chart_type }}">
+          <div class="period-form-title">Analysis period</div>
+          <div>
+            <label for="startDate" class="trend-label">Start date</label>
+            <input id="startDate" type="date" name="start" class="trend-input" value="{{ start_date|date:'Y-m-d' }}">
+          </div>
+          <div>
+            <label for="endDate" class="trend-label">End date</label>
+            <input id="endDate" type="date" name="end" class="trend-input" value="{{ end_date|date:'Y-m-d' }}">
+          </div>
+          <div>
+            <label for="periodGrouping" class="trend-label">Grouping</label>
+            <select name="granularity" id="periodGrouping" class="trend-input">
+              <option value="week"{% if granularity == 'week' %} selected{% endif %}>Weekly analysis</option>
+              <option value="month"{% if granularity == 'month' %} selected{% endif %}>Monthly analysis</option>
+            </select>
+          </div>
+          <button class="trend-btn" type="submit">Apply period</button>
+        </form>
+      </details>

@@ -1659,12 +1659,11 @@
   }
 
 </style>
-<link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20260925-type1">
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}?v=20261019-dashboard1">
 
 <div class="home-dashboard">
   <header class="dashboard-header">
     <div class="dashboard-identity">
-      <div class="brand-logo" aria-hidden="true">MPCP</div>
       <div>
         <h1>Meadowvale Professional Center Pharmacy</h1>
         <p>6855 Meadowvale Town Centre Cir, Mississauga, ON L5N 2Y1</p>
@@ -1715,9 +1714,9 @@
         <span class="kpi-summary-label">Stock</span>
         <span class="kpi-summary-value ui-stock-quantity ui-stock-quantity--inline">{{ total_units|floatformat:0 }}</span>
       </div>
-      <div class="kpi-summary-row" style="border-bottom:none;">
+      <div class="kpi-summary-row">
         <span class="kpi-summary-label">Revenue</span>
-        <span class="kpi-summary-value" style="color:#059669;">${{ revenue_today|floatformat:2 }}</span>
+        <span class="kpi-summary-value">${{ revenue_today|floatformat:2 }}</span>
       </div>
     </div>
     <div class="kpi-card kpi-success">
@@ -1770,7 +1769,7 @@
         Labels
       </a>
     </div>
-    <div class="quick-actions-divider"></div>
+    <div class="quick-actions-divider" aria-hidden="true"></div>
     <div class="quick-actions secondary-actions" aria-label="More dashboard shortcuts">
       <a href="{% url 'archive_recovery' %}" class="action-btn" data-requires-admin>
         <div class="action-icon" style="background:#ecfdf5;">&#8634;</div>
@@ -1964,6 +1963,7 @@
       </div>
       <div class="cp-modal-body">
         <p class="cp-modal-step">Scan this code with your phone's camera to open the pharmacy app over the shop's Wi-Fi, then sign in with your PU account.</p>
+        <p class="cp-note">First install the main computer's public Pharmacy root certificate on your phone and enable trust for it. Phone access has its own place, so your PU computers stay signed in.</p>
         <div class="cp-qr-wrap">
           <img src="{{ connect_phone_qr }}" alt="QR code to open the app on your phone" class="cp-qr-img">
         </div>

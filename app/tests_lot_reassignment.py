@@ -874,7 +874,7 @@ class InlineLotAssignmentPresentationTests(LotReassignmentFixtureMixin, TestCase
             / '_checkin_lot_reassignment.html'
         )
         checkin_path = base / 'app' / 'templates' / 'checkin.html'
-        partial = partial_path.read_text(encoding='utf-8')
+        partial = partial_path.read_text(encoding='utf-8') + (base / 'app/templates/partials/_checkin_lot_row.html').read_text(encoding='utf-8')
         checkin = checkin_path.read_text(encoding='utf-8')
 
         self.assertFalse(old_partial_path.exists())

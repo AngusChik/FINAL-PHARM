@@ -179,7 +179,10 @@ PHONE_SESSION_AGE = int(os.environ.get('PHONE_SESSION_AGE', '7200'))  # 2 hours
 # ============================================
 # CONCURRENT SESSION LIMITS
 # ============================================
-# PU capacity: at most this many ACTIVE regular sessions may be signed in at
+# Public production address shared by Caddy, workstation shortcuts, and phone QR.
+PHARMACY_HOST = os.environ.get('PHARMACY_HOST', '').strip()
+
+# PU capacity: at most this many ACTIVE regular computer sessions may be signed in at
 # once. Staff/admin sessions are separate and never consume a PU slot. Every PU
 # login receives a backend identity (PU1..PU6 by default) so all workstations
 # can keep using the shared visible username "PU".
@@ -192,6 +195,9 @@ MAX_PU_SESSIONS = int(os.environ.get(
 ))
 # Compatibility alias for any older code importing the previous setting name.
 GLOBAL_MAX_SESSIONS = MAX_PU_SESSIONS
+
+# Phone connections have a separate allowance so the six computers stay signed in.
+MAX_PU_PHONE_SESSIONS = int(os.environ.get('MAX_PU_PHONE_SESSIONS', '4'))
 
 # A session counts as "active" only while its heartbeat is fresher than this
 # many seconds. Every signed-in computer beats every ~10s (see base.html), so a

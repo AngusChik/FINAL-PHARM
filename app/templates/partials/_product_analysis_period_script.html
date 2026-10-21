@@ -1,0 +1,15 @@
+<script>
+  (function () {
+    const period = document.getElementById('productPeriodControl');
+    if (!period) return;
+    document.addEventListener('click', function (event) {
+      if (period.open && !period.contains(event.target)) period.open = false;
+    });
+    period.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && period.open) {
+        period.open = false;
+        period.querySelector('summary').focus();
+      }
+    });
+  })();
+</script>

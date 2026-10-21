@@ -1970,7 +1970,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
 }
 
 @media (max-width: 768px) {
-    html { scroll-padding-bottom: 78px; }
+    html { scroll-padding-bottom: calc(var(--ui-mobile-nav-height, 72px) + 16px); }
 
     body.app-shell .ui-page-title-row {
         width: 100%;
@@ -2064,7 +2064,7 @@ body.embed-shell :is(.table-card, .os-add-form, .os-header) {
     body.app-shell .container {
         width: 100%;
         margin: 0;
-        padding: var(--space-4) var(--space-4) calc(88px + env(safe-area-inset-bottom));
+        padding: var(--space-4) var(--space-4) calc(var(--ui-mobile-nav-height, 72px) + 16px);
     }
 
     body.app-shell :is(

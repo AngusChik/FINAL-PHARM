@@ -1,0 +1,243 @@
+/* Check-in: one compact workspace for receiving and editing the same lot rows. */
+body.app-shell .checkin-page .main-grid.ic-3col:has(.checkin-trends-panel) { grid-template-columns: 250px minmax(0,1fr) 260px; }
+body.app-shell .checkin-page #search-box.is-inline-paused .scan-hint { color: #4338ca; background: #eef2ff; }
+body.app-shell .checkin-page #search-box.is-inline-paused .hint-dot { background: #818cf8; }
+body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) { grid-template-columns: 236px minmax(0, 1fr) 248px; gap: 14px; }
+body.app-shell .checkin-page .checkin-side-column { position: static; height: auto; min-height: 0; }
+body.app-shell .checkin-page .checkin-trends-panel { grid-column: 3; grid-row: 1; min-width: 0; border: 2px solid #818cf8; border-radius: 12px; background: var(--surface); }
+.checkin-trends-panel > details > summary { display: grid; grid-template-columns: minmax(0,1fr) 16px; gap: 8px 10px; padding: 16px; border-radius: 10px; color: #4338ca; background: #eef2ff; font-size: calc(1rem * var(--ui-type-scale,1)); font-weight: 750; list-style: none; cursor: pointer; }
+.checkin-trends-panel summary::-webkit-details-marker { display: none; }
+.checkin-trends-panel > details > summary::after { content: ''; grid-column: 2; grid-row: 1; width: 9px; height: 9px; align-self: center; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.checkin-trends-panel > details[open] > summary { border-radius: 10px 10px 0 0; border-bottom: 1px solid #c7d2fe; }
+.checkin-trends-panel > details[open] > summary::after { transform: rotate(225deg); }
+.checkin-trends-panel .trends-summary-hint { grid-column: 1 / -1; color: var(--text-secondary); font-size: calc(.8rem * var(--ui-type-scale,1)); font-weight: 400; }
+.trends-hide, #checkinTrends[open] .trends-show { display: none; }
+#checkinTrends[open] .trends-hide { display: inline; }
+.checkin-trends-panel .restock-card { border: 0; border-radius: 0 0 10px 10px; background: transparent; padding: 18px 16px; }
+.checkin-trends-panel .restock-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.checkin-trends-panel .restock-top { flex-wrap: wrap; }
+.checkin-trends-panel .restock-product-movement { margin-top: 18px; padding-top: 18px; border-top: 1px solid #e0e7ff; }
+.checkin-trends-panel .ph-head { flex-wrap: wrap; }
+.checkin-page .product-price { font-size: calc(2.25rem * var(--ui-type-scale, 1)); line-height: 1.15; font-weight: 750; }
+.checkin-page .product-meta-edit input[name=price] { max-width: 180px; font-size: calc(2rem * var(--ui-type-scale,1)); }
+.checkin-page .product-header-primary-actions { flex-wrap: wrap; gap: 6px; }
+.checkin-page .inline-receiving-paused { margin: 0; padding: 8px 16px; color: #4338ca; background: #eef2ff; font-size: calc(.95rem * var(--ui-type-scale,1)); }
+.checkin-page .unified-lots-workspace { display: block; padding: 12px 16px 10px; border: 0; border-radius: 0; box-shadow: none; }
+.checkin-page .receiving-strip-title { margin: 0; color: var(--text-primary); font-size: calc(1.1rem * var(--ui-type-scale, 1)); text-transform: none; letter-spacing: normal; }
+.checkin-page .receiving-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; margin-bottom: 10px; border-radius: 9px; background: #eef2ff; }
+.checkin-page .receiving-toolbar .receiving-selected-target { width: auto; min-width: 0; flex: 1 1 150px; display: flex; align-items: baseline; justify-content: flex-start; flex-wrap: wrap; gap: 4px 10px; padding: 0; border: 0; text-align: left; margin-top: 0; }
+.checkin-page .receiving-toolbar .receiving-selected-target-label { text-transform: none; letter-spacing: normal; font-size: calc(.95rem * var(--ui-type-scale,1)); }
+.checkin-page .receiving-toolbar .receiving-selected-target strong { color: #4338ca; overflow-wrap: anywhere; }
+.checkin-page .receiving-toolbar .receiving-selected-target small { flex-basis: auto; text-align: left; font-size: calc(.75rem * var(--ui-type-scale, 1)); line-height: 1.3; }
+.checkin-page .unified-lot-workspace { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 12px; align-items: center; }
+.checkin-page .receive-stock-summary { grid-column: auto; grid-row: auto; min-height: 0; padding: 12px 8px; border: 1px solid #b3becd; border-radius: 10px; background: white; gap: 8px; }
+.checkin-page .receive-stock-label { font-size: calc(.95rem * var(--ui-type-scale, 1)); text-transform: none; letter-spacing: normal; font-weight: 500; }
+.checkin-page .receive-stock-number { max-width: 100%; overflow-wrap: anywhere; font-size: calc(3.25rem * var(--ui-type-scale, 1)); line-height: 1.2; letter-spacing: -.04em; }
+.checkin-page .receive-stock-number.sb-editable { border: 0; }
+.checkin-page .receive-stock-units { font-size: calc(1rem * var(--ui-type-scale,1)); color: var(--text-secondary); }
+.checkin-page .receiving-strip .sb-set-input { width: 100%; font-size: calc(1.5rem * var(--ui-type-scale,1)); min-height: 44px; }
+.checkin-page .receiving-saved-lots { display: block; grid-column: auto; grid-row: auto; min-width: 0; max-height: none; height: auto; border: 0; border-radius: 0; padding: 0; background: white; container-type: inline-size; container-name: checkin-lots; }
+.checkin-page .receiving-saved-lots-title { padding: 0; margin: 0 0 12px; }
+.checkin-page .receiving-saved-lots-actions { flex-wrap: wrap; gap: 6px; width: auto; }
+.checkin-page .receiving-saved-lots-count { display: none; }
+.checkin-page .receiving-lot-list { display: block; list-style: none; padding: 0; margin: 0; border: 0; max-height: none; overflow: visible; }
+.checkin-page .receiving-lot-list-item { margin: 0; padding: 0; border-top: 0; border-bottom: 1px solid var(--border-subtle); }
+.checkin-page .receiving-lot-list-item:has(.receiving-lot-row.is-selected) { background: #f4f5ff; }
+.checkin-page .receiving-lot-list-item:has(.receiving-lot-row.is-selected) [data-receiving-lot-checkin-state]:not(.is-expired) { color: #4338ca; background: #eef2ff; }
+.checkin-page .receiving-lot-column-head, .checkin-page .unified-lot-cells { display: grid; grid-template-columns: 36px minmax(116px, 1fr) minmax(148px, .9fr) 58px 36px; gap: 6px; align-items: center; padding: 6px 4px; }
+.checkin-page .receiving-lot-column-head { text-transform: none; letter-spacing: normal; font-size: calc(.8rem * var(--ui-type-scale,1)); padding-block: 5px; }
+.checkin-page .unified-lot-cells > * { min-width: 0; }
+.checkin-page .unified-lot-cells .receiving-lot-row { display: flex; grid-column: 1; grid-row: 1; justify-content: center; align-items: center; width: 36px; min-width: 36px; min-height: 44px; padding: 0; border: 0; border-radius: 4px; background: transparent; box-shadow: none; }
+.receiving-selection-mark { display: block; width: 20px; height: 20px; border: 1px solid #94a3b8; border-radius: 50%; }
+.is-selected .receiving-selection-mark { border-color: #4f46e5; background: #4f46e5; box-shadow: inset 0 0 0 3px white; }
+.checkin-page .unified-lot-name { grid-column: 2; grid-row: 1; }
+.checkin-page .unified-lot-expiry { grid-column: 3; grid-row: 1; }
+.checkin-page .unified-lot-units { grid-column: 4; grid-row: 1; }
+.checkin-page .unified-lot-cells .lot-row-remove { grid-column: 5; width: 36px; min-height: 44px; border: 0; border-radius: 6px; background: #fee2e2; color: #b91c1c; font-size: 25px; cursor: pointer; grid-row: 1; }
+.checkin-page .unified-lot-cells label { margin: 0; }
+.checkin-page .unified-lot-cells input { width: 100%; min-width: 0; min-height: 44px; padding: 6px 8px; border: 1px solid #b3becd; border-radius: 7px; background: white; color: var(--text-primary); font: inherit; }
+.checkin-page .receiving-lot-name, .checkin-page .receiving-lot-stock, .checkin-page .receiving-lot-expiry { font-size: calc(1rem * var(--ui-type-scale,1)); overflow-wrap: anywhere; }
+.checkin-page .receiving-lot-checkin-state { font-size: calc(.65rem * var(--ui-type-scale, 1)); margin: 0; padding: 1px 6px; }
+.checkin-page .unified-lot-mobile-label { display: none; color: var(--text-secondary); }
+.checkin-page .receiving-lot-fields { margin-bottom: 16px; }
+.checkin-page .receiving-lot-feedback { margin-top: 6px; padding-top: 6px; }
+.checkin-page .is-editing .unified-lot-cells { align-items: start; }
+.checkin-page .is-editing .receiving-lot-list-item { background: transparent; }
+.checkin-page .inline-save-bar { position: sticky; bottom: 14px; z-index: 50; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-top: 1px solid #c7d2fe; background: white; box-shadow: 0 -5px 16px #0f172a10; border-radius: 0 0 12px 12px; }
+.inline-save-bar > span { font-size: calc(.8rem * var(--ui-type-scale,1)); color: var(--text-secondary); }
+.inline-save-bar > div { display: flex; gap: 9px; }
+.inline-field-error { display: block; margin: 6px 0 0; font-size: calc(.8rem * var(--ui-type-scale,1)); color: #b91c1c; }
+.checkin-page [aria-invalid=true] { border-color: #dc2626 !important; }
+.checkin-page .lot-row-error { border-left: 3px solid #dc2626; }
+body.app-shell .checkin-page #checkinActivityRail { height: var(--session-panel-height,auto); min-height: 220px; }
+.checkin-page .activity-rail-card, .checkin-page .activity-session-section, .checkin-page .session-history-card, .checkin-page .session-history-inner { height: 100%; min-height: 0; }
+.checkin-page .activity-rail-card { padding: 0; }
+.checkin-page .activity-session-section { padding: 0; }
+.checkin-page .session-history-inner { display: flex; flex-direction: column; }
+.checkin-page .session-history-head { padding: 12px; gap: 6px; align-items: start; }
+.checkin-page .activity-session-section .session-history-head h3 { font-size: calc(1.1rem * var(--ui-type-scale,1)); }
+.checkin-page .session-history-sub, .checkin-page .session-history-total { font-size: calc(.7rem * var(--ui-type-scale,1)); }
+.checkin-page .session-history-list { flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; }
+.checkin-page .activity-session-section .session-history-row { grid-template-columns: minmax(0,1fr) auto; gap: 2px 6px; padding: 8px 12px; }
+.checkin-page .session-history-time { grid-column: 2; grid-row: 2; font-size: calc(.7rem * var(--ui-type-scale,1)); text-align: right; align-self: end; }
+.checkin-page .session-history-product { grid-column: 1; grid-row: 1 / 3; min-width: 0; }
+.checkin-page .session-history-qty { grid-column: 2; grid-row: 1; padding: 2px 6px; min-width: 0; }
+.checkin-page .session-history-product strong { white-space: normal; }
+.checkin-page [hidden] { display: none !important; }
+.checkin-page .order-header { padding: 12px 16px; margin-bottom: 12px; }
+.checkin-page .product-card-header { padding: 12px 16px; gap: 10px; }
+.checkin-page .product-name { margin: 3px 0; }
+.checkin-page .product-header-meta { margin-bottom: 0; }
+.checkin-page .product-meta-row { margin-top: 4px; }
+.checkin-page .product-header-primary-actions .btn-action { padding: 8px 12px; min-height: 44px; }
+.checkin-page #toggleEditBtn { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+.checkin-page #toggleEditBtn:hover { background: #4338ca; border-color: #4338ca; }
+.checkin-page .product-actions-menu > summary { background: #fff3d6; border-color: #e9c879; color: #845000; }
+.checkin-page .product-actions-menu > summary:hover { background: #ffe9b5; border-color: #d8b35b; }
+.checkin-page .checkin-lot-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 10px; }
+.checkin-page .receiving-saved-lots-actions button { min-height: 44px; padding: 7px 10px; }
+.checkin-page .receiving-selected-target small::before { content: '·'; margin-right: 10px; }
+.checkin-page .receive-stock-copy { gap: 4px; }
+.checkin-page .receive-stock-summary .stock-control-group { display: flex; width: 100%; gap: 6px; padding: 8px 0 0; border: 0; border-top: 1px solid #dbe2eb; border-radius: 0; background: transparent; box-shadow: none; }
+.checkin-page .receive-stock-summary .stock-control-group form { flex: 1; min-width: 0; margin: 0; }
+.checkin-page .receive-stock-summary .btn-stock-adj { width: 100%; min-width: 44px; min-height: 44px; height: 44px; padding: 4px; font-size: 18px; white-space: nowrap; }
+.checkin-page .receive-stock-summary .btn-stock-minus { background: #dc2626; color: #fff; }
+.checkin-page .receive-stock-summary .btn-stock-plus { background: #15803d; color: #fff; }
+.checkin-page .receiving-lot-name-cell { display: flex; flex-wrap: wrap; flex-direction: row; align-items: center; gap: 2px 6px; }
+.checkin-page .receiving-lot-help { font-size: calc(.7rem * var(--ui-type-scale, 1)); line-height: 1.4; }
+.checkin-page .product-secondary-details { margin-top: 0; }
+.checkin-page .product-secondary-details > summary { padding: 12px 16px; }
+.checkin-page .checkin-details-grid { gap: 12px; padding: 12px 16px; }
+.checkin-page .inline-edit-enter-hint { padding: 0 16px; margin: 0 0 8px; }
+.checkin-page .detail-box { padding: 0; }
+.checkin-page .detail-label { margin-bottom: 5px; }
+.checkin-page .inline-save-bar button { min-height: 44px; }
+.checkin-page #search-box { padding: 12px; }
+.checkin-page .checkin-scan-heading { margin-bottom: 8px; gap: 6px; }
+.checkin-page .checkin-scan-heading h3 { text-transform: none; letter-spacing: 0; font-size: calc(1rem * var(--ui-type-scale, 1)); }
+.checkin-page .session-history-product small { font-family: inherit; letter-spacing: 0; font-size: calc(.7rem * var(--ui-type-scale, 1)); line-height: 1.35; }
+.checkin-page .checkin-trends-panel { align-self: start; }
+.checkin-page .checkin-trends-panel > details > summary { padding: 12px 14px; gap: 3px 8px; }
+.checkin-page .checkin-trends-panel .trends-summary-hint { font-size: calc(.7rem * var(--ui-type-scale, 1)); }
+.checkin-page .checkin-trends-panel .restock-card { padding: 12px 14px; }
+.checkin-page .checkin-trends-panel .restock-label { margin-bottom: 8px; }
+.checkin-page .checkin-trends-panel .restock-top { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; align-items: start; }
+.checkin-page .checkin-trends-panel .restock-icon { width: 26px; height: 28px; font-size: 18px; }
+.checkin-page .checkin-trends-panel .restock-headline { margin-bottom: 4px; line-height: 1.35; }
+.checkin-page .checkin-trends-panel .restock-detail { margin-top: 0; line-height: 1.4; }
+.checkin-page .checkin-trends-panel .restock-metrics { gap: 10px 8px; margin-top: 12px; }
+.checkin-page .checkin-trends-panel .rm { padding: 0; }
+.checkin-page .checkin-trends-panel .restock-product-movement { margin-top: 12px; padding: 12px 10px; }
+.checkin-page .checkin-trends-panel .ph-head { gap: 4px; margin-bottom: 8px; }
+.checkin-page .checkin-trends-panel .ph-chart-wrap { height: 150px; }
+.checkin-page .inline-field-error { margin-top: 4px; line-height: 1.35; }
+.checkin-page .inline-edit-error-summary { margin: 8px 16px; padding: 10px 12px; }
+
+@media (max-width: 1279px) {
+  body.app-shell .checkin-page .main-grid.ic-3col:has(.checkin-trends-panel) { grid-template-columns: minmax(0,1fr) 250px; }
+  body.app-shell .checkin-page .main-grid.ic-3col:has(.checkin-trends-panel) .checkin-side-column { grid-column: 1 / -1; grid-row: 1; }
+  body.app-shell .checkin-page .main-grid.ic-3col:has(.checkin-trends-panel) .checkin-primary-column { grid-column: 1; grid-row: 2; }
+  body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) { grid-template-columns: minmax(0, 1fr) 232px; }
+  body.app-shell .checkin-page .main-grid.has-history .checkin-side-column { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  body.app-shell .checkin-page .main-grid.has-history .checkin-primary-column { grid-column: 1; grid-row: 2; }
+  body.app-shell .checkin-page .checkin-trends-panel { grid-column: 2; grid-row: 2; }
+  body.app-shell .checkin-page #checkinActivityRail { height: auto; max-height: 320px; }
+  .checkin-page .unified-lots-workspace { padding: 18px 16px; }
+  .checkin-page .unified-lot-workspace { grid-template-columns: 102px minmax(0, 1fr); gap: 10px; }
+  .checkin-page .receive-stock-summary .stock-control-group { flex-direction: column; }
+  .checkin-page .receive-stock-summary .stock-control-group form { width: 100%; }
+  .checkin-page .receiving-lot-column-head, .checkin-page .unified-lot-cells { grid-template-columns: 28px minmax(100px, 1fr) minmax(142px, .9fr) 52px 32px; gap: 4px; }
+}
+
+@media (max-width: 1000px) {
+  .checkin-page .receiving-lot-column-head { display: none; }
+  .checkin-page .unified-lot-cells { grid-template-columns: 28px minmax(0, 1fr) 54px 32px; gap: 4px 6px; }
+  .checkin-page .unified-lot-name { grid-column: 2 / 4; grid-row: 1; }
+  .checkin-page .unified-lot-expiry { grid-column: 2 / 4; grid-row: 2; }
+  .checkin-page .unified-lot-units { grid-column: 4; grid-row: 1 / 3; }
+  .checkin-page .unified-lot-cells .receiving-lot-row { grid-row: 1 / 3; width: 28px; min-width: 28px; }
+  .checkin-page .is-editing .unified-lot-name { grid-column: 1 / 4; }
+  .checkin-page .is-editing .unified-lot-expiry { grid-column: 1 / 3; }
+  .checkin-page .is-editing .unified-lot-units { grid-column: 3 / 5; grid-row: 2; }
+  .checkin-page .unified-lot-cells .lot-row-remove { grid-column: 4; grid-row: 1; width: 32px; }
+  .checkin-page .is-editing .unified-lot-mobile-label { display: block; margin-bottom: 3px; font-size: 13px; }
+}
+
+@media (max-width: 768px) {
+  body.app-shell .checkin-page .main-grid.ic-3col:has(.checkin-trends-panel) { grid-template-columns: minmax(0,1fr); }
+  body.app-shell .checkin-page .main-grid.has-history:not(.ic-3col) { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  body.app-shell .checkin-page .main-grid.has-history .checkin-side-column { display: contents; }
+  body.app-shell .checkin-page .main-grid.has-history .checkin-primary-column { grid-column: 1; grid-row: 2; }
+  body.app-shell .checkin-page .checkin-trends-panel { grid-column: 1; grid-row: 3; }
+  body.app-shell .checkin-page #checkinActivityRail { grid-column: 1; grid-row: 4; }
+  .checkin-page .unified-lot-workspace { grid-template-columns: 74px minmax(0, 1fr); gap: 8px; }
+  .checkin-page .receive-stock-summary { padding: 10px 5px; border-radius: 8px; }
+  .checkin-page .receive-stock-number { font-size: 40px; }
+  .checkin-page .receive-stock-label, .checkin-page .receive-stock-units { font-size: 16px; }
+  .checkin-page .receiving-toolbar { padding: 8px; gap: 6px; margin-bottom: 8px; }
+  .checkin-page .inline-save-bar { bottom: calc(60px + env(safe-area-inset-bottom)); padding: 8px 10px; gap: 6px; }
+  .checkin-page .inline-save-bar > div { width: 100%; gap: 7px; }
+  .checkin-page .inline-save-bar button { flex: 1; }
+  .checkin-page .order-header { padding: 12px; }
+  .checkin-page .order-header h2 { margin-bottom: 2px; }
+  .checkin-page .product-card-header { padding: 12px; gap: 8px; }
+  .checkin-page .product-header-actions { gap: 6px; }
+  .checkin-page .product-name { font-size: 22px; }
+  .checkin-page .product-header-meta { font-size: 13px; line-height: 1.4; }
+  .checkin-page .product-price { font-size: 34px; }
+  .checkin-page .product-meta-edit input[name=price] { font-size: 26px; }
+  .checkin-page .inline-receiving-paused { padding: 8px 12px; font-size: 16px; line-height: 1.4; }
+  .checkin-page .unified-lots-workspace { padding: 10px; }
+  .checkin-page .checkin-lot-heading { gap: 4px 6px; margin-bottom: 8px; }
+  .checkin-page .receiving-strip-title { font-size: 18px; }
+  .checkin-page .receiving-saved-lots-actions { gap: 4px; }
+  .checkin-page .receiving-saved-lots-actions button { padding: 6px 7px; font-size: 13px; }
+  .checkin-page .receiving-toolbar .receiving-selected-target { flex-basis: 100%; gap: 3px 8px; }
+  .checkin-page .receiving-toolbar .receiving-selected-target-label { font-size: 16px; }
+  .checkin-page .receiving-toolbar .receiving-selected-target small { flex-basis: auto; font-size: 13px; }
+  .checkin-page .receiving-selected-target small::before { content: none; }
+  .checkin-page .receive-stock-label { font-size: 14px; line-height: 1.3; }
+  .checkin-page .receive-stock-units { font-size: 14px; }
+  .checkin-page .unified-lot-cells { grid-template-columns: 22px minmax(0, 1fr) 36px; gap: 3px 5px; padding: 7px 0; min-height: 72px; }
+  .checkin-page .receiving-lot-column-head { display: grid; grid-template-columns: 22px minmax(0, 1fr) 36px; gap: 5px; padding: 3px 0; font-size: 12px; }
+  .checkin-page .receiving-lot-column-head > span { display: none; }
+  .checkin-page .receiving-lot-column-head > span:nth-child(2) { display: block; grid-column: 2; }
+  .checkin-page .receiving-lot-column-head > span:nth-child(4) { display: block; grid-column: 3; text-align: right; padding: 0; border: 0; white-space: nowrap; }
+  .checkin-page .is-editing .receiving-lot-column-head { display: none; }
+  .checkin-page .unified-lot-cells .receiving-lot-row { grid-column: 1; grid-row: 1 / 3; width: 22px; min-width: 22px; }
+  .checkin-page .unified-lot-name { grid-column: 2; grid-row: 1; }
+  .checkin-page .unified-lot-expiry { grid-column: 2 / 4; grid-row: 2; }
+  .checkin-page .unified-lot-units { grid-column: 3; grid-row: 1; text-align: right; }
+  .checkin-page .receiving-lot-name { font-size: 16px; }
+  .checkin-page .receiving-lot-expiry { font-size: 15px; }
+  .checkin-page .receiving-lot-stock { font-size: 18px; }
+  .checkin-page .receiving-lot-checkin-state { font-size: 11px; padding: 1px 4px; }
+  .checkin-page .unified-lot-mobile-label { display: none; }
+  .checkin-page .unified-lot-expiry .view-mode .unified-lot-mobile-label { display: inline; font-size: 13px; margin: 0 4px 0 0; }
+  .checkin-page .is-editing .unified-lot-cells { grid-template-columns: minmax(0, 1fr) 54px 32px; gap: 5px; align-items: start; }
+  .checkin-page .is-editing .unified-lot-name { grid-column: 1 / 3; grid-row: 1; }
+  .checkin-page .is-editing .unified-lot-expiry { grid-column: 1; grid-row: 2; }
+  .checkin-page .is-editing .unified-lot-units { grid-column: 2 / 4; grid-row: 2; text-align: left; }
+  .checkin-page .is-editing .unified-lot-cells .lot-row-remove { grid-column: 3; grid-row: 1; align-self: end; min-height: 44px; width: 32px; }
+  .checkin-page .is-editing .unified-lot-mobile-label { display: block; font-size: 12px; line-height: 1.2; margin-bottom: 3px; }
+  .checkin-page .is-editing .unified-lot-cells input { font-size: 16px; padding: 6px; }
+  .checkin-page .is-editing .unified-lot-units input { padding-inline: 2px; appearance: textfield; -moz-appearance: textfield; }
+  .checkin-page .is-editing .unified-lot-units input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .checkin-page .inline-save-bar > span { display: none; }
+  .checkin-page .product-secondary-details > summary { padding: 12px 10px; }
+  .checkin-page .product-secondary-hint { display: none; }
+  .checkin-page .checkin-details-grid { padding: 10px; gap: 10px; }
+  .checkin-page .inline-field-error { font-size: 13px; }
+  .checkin-page .inline-edit-error-summary { margin: 8px 10px; font-size: 14px; }
+}
+
+@media (max-width: 359px) {
+  .checkin-page .unified-lot-workspace { grid-template-columns: 64px minmax(0, 1fr); gap: 6px; }
+  .checkin-page .receive-stock-number { font-size: 36px; }
+  .checkin-page .is-editing .unified-lot-cells { grid-template-columns: minmax(0, 1fr) 48px 32px; }
+  .checkin-page .is-editing .unified-lot-expiry { grid-column: 1 / 4; }
+  .checkin-page .is-editing .unified-lot-units { grid-column: 1 / 3; grid-row: 3; }
+  .checkin-page .unified-lot-name { grid-column: 2 / 4; }
+  .checkin-page .unified-lot-units { grid-column: 3; grid-row: 2; }
+  .checkin-page .unified-lot-expiry { grid-column: 1 / 3; }
+}

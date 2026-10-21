@@ -1,0 +1,238 @@
+<script>
+  (function () {
+    const lookup = document.getElementById('productDetailsLookup');
+    const input = document.getElementById('productDetailsSearch');
+    const popover = document.getElementById('productDetailsSearchPopover');
+    const statusBox = document.getElementById('productDetailsSearchStatus');
+    const resultsBox = document.getElementById('productDetailsSearchResults');
+    if (!lookup || !input || !popover || !statusBox || !resultsBox) return;
+
+    const searchUrl = lookup.dataset.searchUrl;
+    const detailsUrlTemplate = lookup.dataset.detailsUrlTemplate;
+    let debounceTimer = null;
+    let requestSequence = 0;
+    let activeIndex = -1;
+
+    function options() {
+      return Array.from(resultsBox.querySelectorAll('.product-details-search-option'));
+    }
+
+    function cancelPendingSearch() {
+      window.clearTimeout(debounceTimer);
+      debounceTimer = null;
+      requestSequence += 1;
+    }
+
+    function hideResults(clear) {
+      options().forEach(function (item) {
+        item.setAttribute('aria-selected', 'false');
+      });
+      if (clear) {
+        resultsBox.replaceChildren();
+        statusBox.textContent = '';
+      }
+      popover.hidden = true;
+      popover.removeAttribute('aria-busy');
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      activeIndex = -1;
+    }
+
+    function showMessage(message, busy) {
+      resultsBox.replaceChildren();
+      resultsBox.hidden = false;
+      statusBox.textContent = message;
+      statusBox.hidden = false;
+      popover.hidden = false;
+      if (busy) popover.setAttribute('aria-busy', 'true');
+      else popover.removeAttribute('aria-busy');
+      input.setAttribute('aria-expanded', 'true');
+      input.removeAttribute('aria-activedescendant');
+      activeIndex = -1;
+    }
+
+    function setActiveOption(index) {
+      const items = options();
+      if (!items.length) return;
+      activeIndex = (index + items.length) % items.length;
+      items.forEach(function (item, itemIndex) {
+        item.setAttribute('aria-selected', itemIndex === activeIndex ? 'true' : 'false');
+      });
+      const active = items[activeIndex];
+      input.setAttribute('aria-activedescendant', active.id);
+      active.scrollIntoView({ block: 'nearest' });
+    }
+
+    function productDetailsUrl(productId) {
+      if (lookup.dataset.salesUrl) {
+        const target = new URL(window.location.href);
+        target.pathname = lookup.dataset.salesUrl;
+        target.searchParams.set('tab', 'details');
+        target.searchParams.set('product_id', productId);
+        target.hash = '';
+        return target.pathname + target.search;
+      }
+      const productPath = detailsUrlTemplate.replace(
+        '/0/',
+        '/' + encodeURIComponent(productId) + '/',
+      );
+      const target = new URL(productPath, window.location.origin);
+      const current = new URL(window.location.href);
+      ['start', 'end', 'granularity', 'type'].forEach(function (key) {
+        const value = current.searchParams.get(key);
+        if (value) target.searchParams.set(key, value);
+      });
+      const returnTo = lookup.dataset.returnTo || '';
+      if (returnTo) target.searchParams.set('return_to', returnTo);
+      return target.pathname + target.search + target.hash;
+    }
+
+    function openProduct(product) {
+      input.value = product.name || '';
+      input.disabled = true;
+      hideResults(false);
+      window.location.assign(productDetailsUrl(product.product_id));
+    }
+
+    function renderResults(products, query) {
+      if (!products.length) {
+        showMessage('No products found for “' + query + '”.', false);
+        return;
+      }
+
+      const fragment = document.createDocumentFragment();
+      products.forEach(function (product, index) {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.id = 'productDetailsSearchOption' + index;
+        option.className = 'product-details-search-option';
+        option.tabIndex = -1;
+        option.setAttribute('role', 'option');
+        option.setAttribute('aria-selected', 'false');
+
+        const name = document.createElement('span');
+        name.className = 'product-details-search-name';
+        name.textContent = product.name || 'Unnamed product';
+
+        const stock = document.createElement('span');
+        stock.className = 'product-details-search-stock ui-stock-quantity ui-stock-quantity--inline';
+        stock.textContent = String(Number(product.quantity_in_stock || 0)) + ' in stock';
+
+        const meta = document.createElement('span');
+        meta.className = 'product-details-search-meta';
+        const details = [product.barcode || 'No barcode'];
+        if (product.status === false) details.push('Inactive');
+        if (String(product.product_id) === lookup.dataset.currentProductId) {
+          details.push('Current product');
+        }
+        meta.textContent = details.join(' · ');
+
+        option.append(name, stock, meta);
+        option.addEventListener('click', function () { openProduct(product); });
+        fragment.appendChild(option);
+      });
+
+      statusBox.textContent = '';
+      statusBox.hidden = true;
+      resultsBox.replaceChildren(fragment);
+      resultsBox.hidden = false;
+      popover.hidden = false;
+      popover.removeAttribute('aria-busy');
+      input.setAttribute('aria-expanded', 'true');
+      activeIndex = -1;
+    }
+
+    function searchProducts(query, openSingleMatch) {
+      debounceTimer = null;
+      const requestId = ++requestSequence;
+      const endpoint = new URL(searchUrl, window.location.origin);
+      endpoint.searchParams.set('q', query);
+      showMessage('Searching products…', true);
+
+      fetch(endpoint.toString(), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      })
+        .then(function (response) {
+          if (!response.ok) throw new Error('Search request failed');
+          return response.json();
+        })
+        .then(function (data) {
+          if (requestId !== requestSequence || input.value.trim() !== query) return;
+          const products = Array.isArray(data.results) ? data.results : [];
+          if (openSingleMatch && products.length === 1) {
+            openProduct(products[0]);
+            return;
+          }
+          renderResults(products, query);
+          if (openSingleMatch && products.length) setActiveOption(0);
+        })
+        .catch(function () {
+          if (requestId !== requestSequence) return;
+          showMessage('Product search is unavailable. Please try again.', false);
+        });
+    }
+
+    input.addEventListener('input', function () {
+      cancelPendingSearch();
+      const query = input.value.trim();
+      if (query.length < 2) {
+        hideResults(true);
+        return;
+      }
+      showMessage('Searching products…', true);
+      debounceTimer = window.setTimeout(function () {
+        searchProducts(query, false);
+      }, 250);
+    });
+
+    input.addEventListener('keydown', function (event) {
+      const items = options();
+      if (event.key === 'ArrowDown' && items.length) {
+        event.preventDefault();
+        setActiveOption(activeIndex + 1);
+      } else if (event.key === 'ArrowUp' && items.length) {
+        event.preventDefault();
+        setActiveOption(activeIndex - 1);
+      } else if (event.key === 'Enter') {
+        const query = input.value.trim();
+        if (items.length) {
+          event.preventDefault();
+          items[activeIndex >= 0 ? activeIndex : 0].click();
+        } else if (query.length >= 2) {
+          event.preventDefault();
+          window.clearTimeout(debounceTimer);
+          searchProducts(query, true);
+        }
+      } else if (event.key === 'Escape' && !popover.hidden) {
+        event.preventDefault();
+        cancelPendingSearch();
+        hideResults(false);
+      }
+    });
+
+    input.addEventListener('focus', function () {
+      if (resultsBox.childElementCount && input.value.trim().length >= 2) {
+        statusBox.hidden = true;
+        resultsBox.hidden = false;
+        popover.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+      }
+    });
+
+    lookup.addEventListener('focusout', function () {
+      window.setTimeout(function () {
+        if (!lookup.contains(document.activeElement)) {
+          cancelPendingSearch();
+          hideResults(false);
+        }
+      }, 0);
+    });
+
+    document.addEventListener('mousedown', function (event) {
+      if (!lookup.contains(event.target)) {
+        cancelPendingSearch();
+        hideResults(false);
+      }
+    });
+  })();
+</script>

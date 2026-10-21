@@ -145,6 +145,15 @@
         display: flex; align-items: center; align-self: flex-end; width: 160px; justify-content: center; gap: 6px;
     }
     .btn-delete-item:hover { background: #b91c1c; }
+    .btn-edit-product {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 160px; min-height: 44px; padding: 10px 12px; box-sizing: border-box;
+        border: 1px solid #c7d2fe; border-radius: 8px; background: #eef2ff;
+        color: #4338ca; font-size: calc(15px * var(--ui-type-scale, 1));
+        font-weight: 700; text-decoration: none;
+    }
+    .btn-edit-product:hover { background: #e0e7ff; color: #3730a3; }
+    .btn-edit-product:focus-visible { outline: 3px solid var(--of-primary); outline-offset: 3px; }
 
     .barcode-display {
         border: none; width: 160px; box-shadow: none; background: #f8fafc;
@@ -187,6 +196,7 @@
         .order-item { grid-template-columns: 1fr; gap: 12px; }
         .item-price { font-size: calc(27px * var(--ui-type-scale, 1)); }
         .btn-delete-item { width: 100%; min-height: 44px; }
+        .btn-edit-product { width: 100%; }
         .form-control, .form-group input, .form-group select { font-size: calc(18px * var(--ui-type-scale, 1)); padding: 12px; min-height: 48px; }
         .control-box { padding: 16px; }
         .ot-total-value { font-size: calc(29.5px * var(--ui-type-scale, 1)); }
@@ -329,6 +339,9 @@
                             {% csrf_token %}
                             <button type="submit" class="btn-delete-item">🗑️ Delete</button>
                         </form>
+                        {% if row.item.product_id %}
+                        <a class="btn-edit-product" href="{% url 'edit_product' row.item.product_id %}?next={{ request.get_full_path|urlencode }}" aria-label="Edit product: {{ row.item.display_name }}">Edit product</a>
+                        {% endif %}
                         <div class="barcode-display">
                             <div class="barcode-display-label">Barcode</div>
                             <div class="barcode-display-full">{{ row.item.display_barcode }}</div>

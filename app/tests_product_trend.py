@@ -649,6 +649,9 @@ class ProductDetailsResponsiveLayoutTests(SimpleTestCase):
         cls.source = (
             Path(settings.BASE_DIR) / "app" / "templates" / "product_details.html"
         ).read_text(encoding="utf-8")
+        for partial in ("styles", "content", "chart_script"):
+            cls.source += (Path(settings.BASE_DIR) / "app/templates/partials" /
+                           ("_product_analysis_" + partial + ".html")).read_text(encoding="utf-8")
 
     def test_compact_chart_adapts_to_height_without_clipping_supporting_records(self):
         self.assertIn(

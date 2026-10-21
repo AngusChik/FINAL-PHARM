@@ -322,10 +322,10 @@ class CheckinSessionEditTests(TestCase):
         self.client.force_login(self.staff, backend="django.contrib.auth.backends.ModelBackend")
         stock_before = self.product.quantity_in_stock
         changes_before = StockChange.objects.count()
-        ProductLot.objects.create(
+        lot_a = ProductLot.objects.create(
             product=self.product, lot_number="LOT-A", quantity_on_hand=12,
         )
-        ProductLot.objects.create(
+        lot_b = ProductLot.objects.create(
             product=self.product, lot_number="LOT-B", quantity_on_hand=8,
         )
 
@@ -348,6 +348,11 @@ class CheckinSessionEditTests(TestCase):
                 "taxable": "on",
                 "status": "on",
                 "price_per_unit": "",
+                "lot_id": [str(lot_a.pk), str(lot_b.pk)],
+                "lot_original_number": ["LOT-A", "LOT-B"],
+                "lot_original_expiry": ["", ""],
+                "lot_original_quantity": ["12", "8"],
+                "lot_removed": ["0", "0"],
                 "lot_number": ["LOT-A", "LOT-B"],
                 "lot_expiry": ["", ""],
                 "lot_quantity": ["13", "9"],
@@ -1063,13 +1068,14 @@ class SessionLimitTests(TestCase):
             set(DjangoSession.objects.values_list('session_key', flat=True)), expected,
         )
 
-    def test_drop_computer_dedupes_same_user_and_ip(self):
+    def test_relogin_drops_only_its_cookie_tracking_and_keeps_django_session(self):
         self._make_session(self.pu, "192.168.0.10", "a")
-        self._make_session(self.pu, "192.168.0.10", "b")   # same computer, 2nd row
+        self._make_session(self.pu, "192.168.0.10", "b")   # another browser at the same IP
         self._make_session(self.pu, "192.168.0.99", "c")   # different computer
-        self.assertEqual(session_limits.drop_computer(self.pu, "192.168.0.10"), 2)
-        self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 1)
-        self.assertTrue(UserSession.objects.filter(session_key="c").exists())
+        DjangoSession.objects.create(session_key="a", session_data="", expire_date=now() + timedelta(hours=8))
+        self.assertEqual(session_limits.drop_session_tracking("a"), 1)
+        self.assertSetEqual(set(UserSession.objects.values_list('session_key', flat=True)), {"b", "c"})
+        self.assertTrue(DjangoSession.objects.filter(session_key="a").exists())
 
     # ── login flow ──
     def test_regular_login_blocked_at_cap(self):
@@ -1098,17 +1104,17 @@ class SessionLimitTests(TestCase):
         self.assertEqual(created.pu_slot, 2)
         self.assertEqual(created.identity_label, "PU2")
 
-    def test_login_replaces_same_computer_row(self):
-        # An old session for PU from the same computer (IP) it is logging in from.
+    def test_login_keeps_another_browser_at_the_same_address(self):
+        # Sharing an address does not prove this is the same browser/computer.
         self._make_session(self.pu, "192.168.0.50", "oldkey", age_seconds=20)
         resp = self.client.post(
             reverse("login"), {"username": "pu", "password": "pass1234"},
             REMOTE_ADDR="192.168.0.50",
         )
         self.assertEqual(resp.status_code, 302)
-        self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 1)  # not 2
-        self.assertFalse(UserSession.objects.filter(session_key="oldkey").exists())
-        self.assertEqual(UserSession.objects.get(user=self.pu).pu_slot, 1)
+        self.assertEqual(UserSession.objects.filter(user=self.pu).count(), 2)
+        self.assertTrue(UserSession.objects.filter(session_key="oldkey").exists())
+        self.assertEqual(UserSession.objects.get(session_key=self.client.session.session_key).pu_slot, 2)
 
     def test_admin_not_blocked_at_cap_and_is_singleton(self):
         for i in range(6):  # PU pool is full
@@ -1301,7 +1307,7 @@ class InventoryCountModeTests(TestCase):
         self.assertEqual(response.context["session_history_action_count"], 1)
         self.assertEqual(response.context["session_history_product_count"], 1)
         self.assertEqual(response.context["session_history_net"], 2)
-        self.assertContains(response, "Session History")
+        self.assertContains(response, "This session")
         self.assertContains(response, self.p1.name)
 
     def test_inventory_history_lists_only_counted_products(self):

@@ -15,6 +15,16 @@ page-specific JavaScript remain the source of business behavior.
   rewriting their working markup.
 - `static/js/ui-system.js` contains progressive interface behavior: submit
   feedback, table semantics, mobile utility shortcuts, and Escape-key closing.
+- Dialog forms close after a confirmed successful save; validation and network
+  errors keep the form open. Shared dialogs restore focus and contain Tab focus.
+  Escape closes the front popup through its own close button, preserving any
+  underlying panels. Give nonstandard close/cancel controls `data-ui-popup-close`.
+  Seamless modal forms may use `data-ui-keep-open` for intentional repeated entry.
+- `static/js/expiry_dates.js` owns expiry inputs (`.flatpickr-date` or
+  `data-expiry-date`), including new lot rows and refreshed fragments. It inserts
+  dashes in `DD-MM-YYYY`, preserves invalid input for correction, and shares one
+  calendar configuration. Use `window.uiExpiryDates.init(input)` when a caller
+  needs the calendar immediately after inserting a field.
 - `app/templates/base.html` owns the authenticated shell, primary navigation,
   workflow navigation, mobile utilities, and shared overlays.
 - `static/css/navigation-layout.css` supplies the shared 100px desktop

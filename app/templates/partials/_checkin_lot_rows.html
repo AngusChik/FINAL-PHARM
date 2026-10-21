@@ -1,0 +1,8 @@
+{% for lot in product_lots %}
+  {% include "partials/_checkin_lot_row.html" %}
+{% empty %}
+  <li class="receiving-lot-empty view-mode">No saved product lots yet. Use New lot to add one.</li>
+{% endfor %}
+<template data-lot-row-template>
+  {% include "partials/_checkin_lot_row.html" with lot=None %}
+</template>

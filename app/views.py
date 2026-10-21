@@ -13,7 +13,7 @@ import qrcode
 from collections import defaultdict
 from functools import lru_cache, wraps
 from pathlib import Path
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone as datetime_timezone
 import queue
 from urllib import request
 from dateutil.relativedelta import relativedelta
@@ -35,7 +35,7 @@ from django.core.paginator import Paginator
 from django.core.cache import cache
 from django.core import signing
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.utils.dateparse import parse_date
 from django.utils.decorators import method_decorator
 from django.utils.cache import patch_vary_headers
@@ -1272,6 +1272,10 @@ class ProductDetailsView(LoginRequiredMixin, View):
         return safe_product_details_return_url(request, request.GET.get('return_to'))
 
     def get(self, request, product_id):
+        return render(request, self.template_name, self.get_context(request, product_id))
+
+    def get_context(self, request, product_id):
+        """Build the same product analysis for its record page and Sales tab."""
         chart_type = request.GET.get("type", "bar")
         granularity = request.GET.get("granularity", "month")
         if chart_type not in {"bar", "line"}:
@@ -1393,7 +1397,7 @@ class ProductDetailsView(LoginRequiredMixin, View):
                 * recommendation_data["suggested_order_quantity"]
             )
 
-        return render(request, self.template_name, context)
+        return context
 
     def _grouped_totals(self, product, start_date, end_date, granularity):
         """
@@ -2502,15 +2506,21 @@ def _lan_base_url(request):
 
     The dashboard is often open on the shop computer at localhost, but the QR a
     phone scans must point at the machine's LAN IP. Prefer the configured LAN
-    host (DJANGO_ALLOWED_HOSTS, set by configure_ip.py); fall back to whatever
-    host the request came in on.
+    public production address (PHARMACY_HOST, set by configure_ip.py). Production
+    always uses Caddy HTTPS, regardless of the internal Waitress request port.
     """
-    port = request.get_port() or '8000'
+    configured_host = getattr(settings, 'PHARMACY_HOST', '').strip()
+    production_https = getattr(settings, 'SECURE', False)
+    if production_https and configured_host:
+        return f"https://{configured_host}"
     lan_ip = next(
         (h.strip() for h in settings.ALLOWED_HOSTS
          if h.strip() and h.strip() not in ('localhost', '127.0.0.1', '0.0.0.0', '*')),
         None,
     )
+    if production_https or request.is_secure():
+        return f"https://{lan_ip or request.get_host()}"
+    port = request.get_port() or '8000'
     host = f"{lan_ip}:{port}" if lan_ip else request.get_host()
     return f"{request.scheme}://{host}"
 
@@ -2540,11 +2550,21 @@ def connect_phone(request):
                 'stays on its main computer.'
             )
         else:
-            # Already signed in as PU on this phone: convert the session in place.
-            request.session.set_expiry(settings.PHONE_SESSION_AGE)
-            UserSession.objects.filter(
-                session_key=request.session.session_key
-            ).update(device_type=UserSession.DEVICE_PHONE)
+            # Move this browser to the phone allowance without displacing a
+            # computer or an existing phone. Failed conversion keeps its login.
+            with transaction.atomic():
+                session_limits.take_global_lock()
+                session_limits.prune_stale()
+                session_limits.release_phone_slots()
+                if session_limits.active_phone_count(request.session.session_key) >= session_limits.phone_max():
+                    messages.error(request, 'Phone access is currently full. Your existing session is unchanged.')
+                    return redirect('dashboard')
+                UserSession.objects.filter(
+                    session_key=request.session.session_key
+                ).update(device_type=UserSession.DEVICE_PHONE, pu_slot=None)
+                request.session.pop('pu_slot', None)
+                request.session['device_type'] = UserSession.DEVICE_PHONE
+                request.session.set_expiry(settings.PHONE_SESSION_AGE)
             messages.success(
                 request,
                 'Phone connected — you will stay signed in for 2 hours.'
@@ -2566,6 +2586,11 @@ class CustomLoginView(LoginView):
     def form_valid(self, form):
         user = form.get_user()
         ip = _get_client_ip(self.request)
+        current_key = self.request.session.session_key
+        wants_phone = not user.is_staff and bool(
+            self.request.session.get('connect_phone')
+            or self.request.session.get('device_type') == UserSession.DEVICE_PHONE
+        )
 
         # The whole login runs in one transaction guarded by an advisory lock,
         # so the PU capacity check, identity allocation, and session insert
@@ -2573,17 +2598,22 @@ class CustomLoginView(LoginView):
         with transaction.atomic():
             session_limits.take_global_lock()
             session_limits.prune_stale()          # reclaim dead computers' slots
-            session_limits.drop_computer(user, ip)  # free this computer's own old slot
+            session_limits.release_phone_slots()
             pu_slot = None
 
             if user.is_staff:
                 # Each admin identity is a singleton, but it is separate from
                 # PU capacity and never disconnects a PU workstation.
-                session_limits.evict_for_user(user)
+                session_limits.evict_for_user(user, exclude_session_key=current_key)
+            elif wants_phone:
+                if session_limits.active_phone_count(current_key) >= session_limits.phone_max():
+                    messages.error(self.request, 'Phone access is currently full. No other device has been signed out.')
+                    LoginAudit.objects.create(user=user, username=user.username, ip_address=ip, success=False)
+                    return render(self.request, self.get_template_names()[0], {'form': form})
             else:
                 # All regular computers use the shared PU login. Give this live
                 # browser the lowest free backend identity, PU1..PU6.
-                if session_limits.active_pu_count() >= session_limits.pu_max():
+                if session_limits.active_pu_count(current_key) >= session_limits.pu_max():
                     messages.error(
                         self.request,
                         f'All {session_limits.pu_max()} PU slots are already in use. '
@@ -2598,7 +2628,7 @@ class CustomLoginView(LoginView):
                     return render(self.request, self.get_template_names()[0], {
                         'form': form,
                     })
-                pu_slot = session_limits.next_pu_slot()
+                pu_slot = session_limits.next_pu_slot(current_key)
                 if pu_slot is None:
                     # Defensive fallback: the count and unique DB field should
                     # make this unreachable while the advisory lock is held.
@@ -2607,15 +2637,13 @@ class CustomLoginView(LoginView):
                         'form': form,
                     })
 
-            # A phone connecting via the dashboard QR flags its pre-login
-            # session (see connect_phone). Honour it for PU accounts only —
-            # the admin account is never a "phone".
-            wants_phone = bool(self.request.session.get('connect_phone')) and not user.is_staff
-
             # Log in (mints the session_key) and register THIS session inside
             # the lock so the count and the insert are one atomic unit.
+            session_limits.drop_session_tracking(current_key)
             response = super().form_valid(form)
             self.request.session.pop('connect_phone', None)
+            device_type = UserSession.DEVICE_PHONE if wants_phone else UserSession.DEVICE_COMPUTER
+            self.request.session['device_type'] = device_type
             if pu_slot is not None:
                 self.request.session['pu_slot'] = pu_slot
             else:
@@ -2628,14 +2656,12 @@ class CustomLoginView(LoginView):
                 session_key=self.request.session.session_key,
                 ip_address=ip,
                 user_agent=self.request.META.get('HTTP_USER_AGENT', '')[:300],
-                device_type=(UserSession.DEVICE_PHONE if wants_phone
-                             else UserSession.DEVICE_COMPUTER),
+                device_type=device_type,
                 pu_slot=pu_slot,
             )
             LoginAudit.objects.create(
                 user=self.request.user,
-                username=(f'PU{pu_slot}' if pu_slot is not None
-                          else self.request.user.username),
+                username=(f'PU{pu_slot}' if pu_slot is not None else self.request.user.username),
                 ip_address=ip,
                 success=True,
             )
@@ -4795,7 +4821,7 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
             if len(rows) < 5:
                 rows.append(totals_row(product_name, totals))
 
-        return render(request, self.template_name, {
+        context = {
             'kpi': {
                 'revenue':    round(total_revenue, 2),
                 'orders':     total_orders,
@@ -4816,7 +4842,20 @@ class SalesAnalyticsView(AdminRequiredMixin, View):
             'ignore_braces':  ignore_braces,
             'ordering_suggestions_url': reverse('ordering_suggestions'),
             'suggestion_categories': Category.objects.order_by('name'),
-        })
+        }
+        selected_product = request.GET.get('product_id', '')
+        if selected_product:
+            try:
+                product_id = int(selected_product)
+            except (TypeError, ValueError, OverflowError):
+                raise Http404("Product not found")
+            if product_id <= 0 or product_id > 9223372036854775807:
+                raise Http404("Product not found")
+            analysis = ProductDetailsView().get_context(request, product_id)
+            context['analysis_start_date'] = analysis.pop('start_date')
+            context['analysis_end_date'] = analysis.pop('end_date')
+            context.update(analysis)
+        return render(request, self.template_name, context)
 
 
 # change
@@ -6490,8 +6529,8 @@ class ActiveSessionsView(AdminRequiredMixin, View):
       - idle:   between 30s and SESSION_ACTIVE_WINDOW — still holds a slot.
       - stale:  older than the window — no longer counts; will be cleared at the
                 next login or by the prune_sessions command.
-    "PU slots N / MAX_PU_SESSIONS" reflects the same six-session pool the login
-    enforces. Admin rows remain visible but do not consume a PU slot. This view
+    The computer and phone counts reflect the separate limits enforced at
+    login. Admin rows remain visible but consume neither allowance. This view
     is READ-ONLY: it never deletes rows (it auto-refreshes via GET), so pruning
     is left to login / the scheduled command.
 
@@ -6531,7 +6570,8 @@ class ActiveSessionsView(AdminRequiredMixin, View):
                 'status': status,
                 'status_label': label,
                 'counts': counts,
-                'uses_pu_slot': bool(us.user and not us.user.is_staff),
+                'uses_pu_slot': bool(us.user and not us.user.is_staff and us.device_type == UserSession.DEVICE_COMPUTER),
+                'uses_phone_slot': bool(us.user and not us.user.is_staff and us.device_type == UserSession.DEVICE_PHONE),
                 'last_active': 'Active now' if online else (timesince(us.last_activity) + ' ago'),
                 'since': localtime(us.created_at).strftime('%b %d, %I:%M %p'),
                 'is_me': us.session_key == my,
@@ -6547,6 +6587,8 @@ class ActiveSessionsView(AdminRequiredMixin, View):
                 1 for r in rows if r['counts'] and r['uses_pu_slot']
             ),
             'max_slots': session_limits.pu_max(),
+            'active_phone_slots': sum(1 for r in rows if r['counts'] and r['uses_phone_slot']),
+            'max_phone_slots': session_limits.phone_max(),
             'total': len(rows),
             'rows': rows,
         }
@@ -7127,7 +7169,7 @@ def _apply_product_editor_lot_edits(product, rows, user=None):
 
 
 def _record_product_editor_lot_quantity_changes(
-    product, rows, old_product_quantity, user=None,
+    product, rows, old_product_quantity, user=None, session=None,
 ):
     """Record exact lot-level additions/removals made by Edit Product."""
     additions = []
@@ -7185,8 +7227,10 @@ def _record_product_editor_lot_quantity_changes(
             product=product,
             qty=total,
             change_type=change_type,
-            note='Product lot quantities updated via Edit Product',
+            note=('Product lot quantities updated via Check-in' if session else
+                  'Product lot quantities updated via Edit Product'),
             user=user,
+            session=session,
         )
         ProductLotMovement.objects.bulk_create([
             ProductLotMovement(
@@ -7207,9 +7251,11 @@ def _record_product_editor_lot_quantity_changes(
             change_type='error_add' if residual > 0 else 'error_subtract',
             note=(
                 'Product stock summary reconciled with active lot quantities '
-                'via Edit Product; no lot quantity changed for this entry'
+                f'via {"Check-in" if session else "Edit Product"}; '
+                'no lot quantity changed for this entry'
             ),
             user=user,
+            session=session,
         )
 
     active_total = ProductLot.objects.filter(
@@ -7359,6 +7405,27 @@ def _lot_rows_for_template(
         for lot in product.lots.filter(archived_at__isnull=True)
         .order_by(F('expiry_date').asc(nulls_last=True), 'lot_number')
     ]
+
+
+def _checkin_lot_rows(product=None, post_data=None):
+    """One row model for receiving, editing, validation and refreshed fragments."""
+    rows = _lot_rows_for_template(product, post_data, allow_unassigned_lot_edit=True)
+    saved = {lot.pk: lot for lot in product.lots.filter(archived_at__isnull=True)} if product else {}
+    for row in rows:
+        raw_id = str(row.get('lot_id') or '')
+        lot = saved.get(int(raw_id)) if raw_id.isdigit() else None
+        row['view_number'] = lot.destination_name if lot else row.get('staff_name', '')
+        row['view_expiry'] = lot.expiry_date if lot else row.get('expiry_date')
+        row['view_quantity'] = lot.quantity_on_hand if lot else row.get('quantity', 0)
+        row['receivable'] = bool(lot and not lot.is_unassigned)
+        row['is_expired'] = bool(lot and lot.expiry_date and lot.expiry_date < date.today())
+        row['is_unassigned_saved'] = bool(lot and lot.is_unassigned)
+        row.setdefault('original_lot_number', row.get('lot_number', ''))
+        row.setdefault('original_expiry_date', row.get('expiry_date'))
+        row['original_expiry_value'] = row.get('original_expiry_date_raw') or (
+            row['original_expiry_date'].strftime('%d-%m-%Y') if row.get('original_expiry_date') else ''
+        )
+    return rows
 
 
 def _lot_inventory_summary(product):
@@ -9524,7 +9591,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             'session': session,
             'product': product,
             'saved_receiving_lots': saved_lots,
-            'product_lots': _lot_rows_for_template(product),
+            'product_lots': _checkin_lot_rows(product),
             **history_context,
             **draft_context,
             **assignment_context,
@@ -9590,7 +9657,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             'product_id': product.product_id,
             'system_quantity': product.quantity_in_stock,
             'lot_rows_html': render_to_string(
-                'includes/_product_lot_rows.html',
+                'partials/_checkin_lot_rows.html',
                 {
                     **fragment_context,
                     'lot_rows': fragment_context['product_lots'],
@@ -9630,7 +9697,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             ],
         })
 
-    def get(self, request, session_id):
+    def get(self, request, session_id, *, product_override=None, edit_form_override=None, lot_post_data=None):
         session = get_object_or_404(CheckinSession, pk=session_id)
         if not session.is_active:
             return redirect("checkin_session_detail", session_id=session.pk)
@@ -9677,9 +9744,9 @@ class CheckinProductView(LoginRequiredMixin, View):
         product_id = (request.GET.get("product_id") or "").strip()
         inventory_mode = session.inventory_mode
 
-        product = None
+        product = product_override
         # Prefer product_id (always present, works for barcode-less items)
-        if product_id:
+        if product is None and product_id:
             product = Product.objects.filter(product_id=product_id).first()
         if product is None and barcode:
             product = find_product_by_barcode(barcode)
@@ -9691,7 +9758,7 @@ class CheckinProductView(LoginRequiredMixin, View):
             request.GET.get('format') == 'checkin_fragments'
             and request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         )
-        if product and not inventory_mode and not is_fragment_request:
+        if product and not inventory_mode and not is_fragment_request and edit_form_override is None:
             try:
                 repair_result = repair_lot_balance_to_main(
                     product,
@@ -9740,7 +9807,12 @@ class CheckinProductView(LoginRequiredMixin, View):
                 Q(item_number__icontains=query)
             ).distinct()[:20]  # Limit results
 
-        edit_form = EditProductForm(instance=product) if product else None
+        edit_form = edit_form_override if edit_form_override is not None else (
+            EditProductForm(instance=product) if product else None
+        )
+        if edit_form:
+            for field in edit_form.fields.values():
+                field.widget.attrs['form'] = 'inlineEditForm'
 
         # Last checkin timestamp for this product
         last_checkin = None
@@ -9891,8 +9963,11 @@ class CheckinProductView(LoginRequiredMixin, View):
                 )
             ),
             "product": product,
-            "product_lots": _lot_rows_for_template(product),
-            "inline_stock_baseline": product.quantity_in_stock if product else None,
+            "product_lots": _checkin_lot_rows(product, lot_post_data),
+            "inline_stock_baseline": (
+                lot_post_data.get('inline_stock_baseline') if lot_post_data is not None
+                else product.quantity_in_stock if product else None
+            ),
             "saved_receiving_lots": saved_receiving_lots,
             "edit_form": edit_form,
             "categories": Category.objects.all(),
@@ -10073,132 +10148,61 @@ class CheckinEditProductView(LoginRequiredMixin, View):
             messages.error(request, "This session has ended.", extra_tags="checkin error")
             return redirect("checkin_dashboard")
 
-        session_url = reverse('checkin_session', kwargs={'session_id': session.pk})
-        inventory_mode = session.inventory_mode
-
         with transaction.atomic():
-            product = Product.objects.select_for_update().get(product_id=product_id)
+            product = get_object_or_404(
+                Product.objects.select_for_update(), product_id=product_id,
+            )
             old_quantity = product.quantity_in_stock
-
-            # Inline lot rows are the source of truth for stock. Ignore crafted
-            # summary stock/expiry values and derive both from the lot editor.
+            # Lock every identity as well as the total: a transfer can leave the
+            # total unchanged while making an open allocation stale.
+            list(ProductLot.objects.select_for_update().filter(product=product).order_by('pk'))
             post_data = _derive_edit_inventory_post(
                 request.POST.copy(), product, request.POST,
                 empty_submitted_lots_are_zero=True,
+                allow_unassigned_lot_edit=True,
             )
-
             form = EditProductForm(post_data, instance=product)
-
+            lot_rows, lots_valid = None, False
             if form.is_valid():
                 lot_rows, lots_valid = _validate_lot_rows(
                     form, request.POST, empty_submitted_lots_are_zero=True,
-                    product=product,
+                    product=product, allow_unassigned_lot_edit=True,
                 )
-            else:
-                lot_rows, lots_valid = None, False
-
-            try:
-                inline_stock_baseline = int(
-                    request.POST.get('inline_stock_baseline', old_quantity)
-                )
-            except (TypeError, ValueError):
-                inline_stock_baseline = old_quantity
-
-            if form.is_valid() and lots_valid:
-                derived_quantity = int(
-                    form.cleaned_data.get('quantity_in_stock') or 0
-                )
-                if (
-                    inline_stock_baseline != old_quantity
-                    and derived_quantity != old_quantity
-                ):
-                    form.add_error(
-                        'quantity_in_stock',
-                        f'Stock changed to {old_quantity} while you were editing, '
-                        f'but the lot quantities total {derived_quantity}. Update '
-                        f'each “In this lot” value so the lots total {old_quantity} '
-                        'before saving.',
-                    )
+                if lots_valid and not lot_rows and product.lots.filter(archived_at__isnull=True).exists():
+                    form.add_error('quantity_in_stock',
+                        'The product lot list changed or is missing. Reload the page and use Remove on each lot you want to remove.')
                     lots_valid = False
-
             if form.is_valid() and lots_valid:
-                updated = form.save(commit=False)
-                updated.save()
-                form.save_m2m()
-                receiving_draft = (
-                    CheckinReceivingDraft.objects.select_for_update()
-                    .filter(session=session, product=updated)
-                    .first()
-                )
-                selected_lot_key = None
-                if receiving_draft and receiving_draft.existing_lot:
-                    selected_lot_key = (
-                        receiving_draft.existing_lot.lot_number,
-                        receiving_draft.existing_lot.expiry_date,
-                    )
-                active_lot_keys_before = set(
-                    updated.lots.filter(archived_at__isnull=True)
-                    .values_list('lot_number', 'expiry_date')
-                )
-                delta = updated.quantity_in_stock - old_quantity
-                if delta != 0:
-                    record_stock_change(
-                        product=updated,
-                        qty=abs(delta),
-                        change_type="error_add" if delta > 0 else "error_subtract",
-                        note=(
-                            f"Lot-derived inline edit: {old_quantity} → "
-                            f"{updated.quantity_in_stock}"
-                        ),
-                        user=request.user,
-                        session=session,
-                    )
-                _save_product_lots(updated, lot_rows, request.user)
-                if receiving_draft and selected_lot_key:
-                    active_lots_after = {
-                        (lot.lot_number, lot.expiry_date): lot
-                        for lot in updated.lots.filter(archived_at__isnull=True)
-                    }
-                    if selected_lot_key not in active_lots_after:
-                        added_keys = set(active_lots_after) - active_lot_keys_before
-                        replacement = (
-                            active_lots_after[next(iter(added_keys))]
-                            if len(added_keys) == 1 else None
+                try:
+                    with transaction.atomic():
+                        changes = _apply_product_editor_lot_edits(product, lot_rows, request.user)
+                        updated = form.save()
+                        _save_product_lots(updated, lot_rows, request.user)
+                        _record_product_editor_lot_quantity_changes(
+                            updated, lot_rows, old_quantity, request.user, session=session,
                         )
-                        receiving_draft.existing_lot = replacement
-                        receiving_draft.lot_number = replacement.lot_number if replacement else ''
-                        receiving_draft.lot_expiry = replacement.expiry_date if replacement else None
-                        receiving_draft.revision += 1
-                        receiving_draft.save(update_fields=[
-                            'existing_lot', 'lot_number', 'lot_expiry',
-                            'revision', 'updated_at',
-                        ])
-                UserAction.objects.create(user=request.user, action='edit_product',
-                    target=updated.name, detail=f'Edited via check-in inline (Session #{session.pk})')
-                messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")
-                # Redirect by product_id (always present) so the just-edited
-                # product stays shown — barcode may be blank or have just been
-                # changed in the edit.
-                return redirect(f"{session_url}?product_id={updated.product_id}")
+                        UserAction.objects.create(
+                            user=request.user, action='edit_product', target=updated.name,
+                            detail=f'Edited via check-in inline (Session #{session.pk})'
+                                + ('; product lot changes: ' + '; '.join(changes) if changes else ''),
+                        )
+                except (ValidationError, IntegrityError) as exc:
+                    form.add_error('quantity_in_stock', (
+                        exc.messages[0] if isinstance(exc, ValidationError) else
+                        'A product lot changed while this page was being saved. Reload the page and try again.'
+                    ))
+                else:
+                    messages.success(request, f"Updated {updated.name}.", extra_tags="checkin success")
+                    return redirect(_checkin_product_url(session, updated))
 
+        # Use the same page context for validation as for initial rendering;
+        # bound inputs keep their submitted values and original lot baselines.
+        product.refresh_from_db()
         messages.error(request, "Could not update product. Please review the highlighted fields.", extra_tags="checkin error")
-        return render(request, self.template_name, {
-            "session": session,
-            "search_results": [],
-            "inventory_mode": inventory_mode,
-            "all_products": list(Product.objects.values("product_id", "name", "price", "quantity_in_stock", "item_number", "barcode")),
-            "product": product,
-            "product_lots": _lot_rows_for_template(product, request.POST),
-            "inline_stock_baseline": request.POST.get(
-                'inline_stock_baseline', product.quantity_in_stock,
-            ),
-            "saved_receiving_lots": _saved_receiving_lots(product),
-            **_lot_assignment_context(product),
-            **_receiving_draft_context(session, product),
-            "edit_form": form,
-            "categories": Category.objects.all(),
-            "change_types": StockChange._meta.get_field('change_type').choices,
-        })
+        return CheckinProductView().get(
+            request, session_id, product_override=product,
+            edit_form_override=form, lot_post_data=request.POST,
+        )
 
 
 # ── Label Session History API ──────────────────────────────────
@@ -15903,9 +15907,8 @@ class DeliveryView(LoginRequiredMixin, View):
 class OrderingSheetView(LoginRequiredMixin, View):
     """Daily ordering sheet.
 
-    Any logged-in user can add, edit, and comment on shared rows. Only staff
-    accounts can delete rows. Staff or a passkey-unlocked session can advance
-    the structured ordering lifecycle.
+    Any logged-in user can add, edit, comment on, and soft-delete shared rows.
+    Staff or a passkey-unlocked session can advance the structured lifecycle.
     """
     template_name = 'ordering_sheet.html'
     embed_template_name = 'ordering_sheet_embed.html'
@@ -15939,7 +15942,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
                 return JsonResponse({'ok': False, 'error': 'Ordering-sheet entry not found.'}, status=404)
             updated_text = ''
             if entry.status_updated_at:
-                updated_text = 'Updated ' + localtime(entry.status_updated_at).strftime('%b %d, %H:%M')
+                updated_text = 'Updated ' + localtime(entry.status_updated_at).strftime('%d %b, %H:%M')
                 if entry.status_updated_by:
                     updated_text += ' by ' + entry.status_updated_by.get_username()
             return JsonResponse({
@@ -16005,15 +16008,28 @@ class OrderingSheetView(LoginRequiredMixin, View):
             latest_sync_run = ScheduledJobRun.objects.filter(
                 job_key=ScheduledJobRun.JOB_GSHEET_PRECLOSE,
             ).exclude(status=ScheduledJobRun.STATUS_RUNNING).first()
+            last_success = ScheduledJobRun.objects.filter(
+                job_key=ScheduledJobRun.JOB_GSHEET_PRECLOSE,
+                status=ScheduledJobRun.STATUS_SUCCESS,
+            ).order_by('-completed_at', '-started_at', '-pk').first()
+            if last_success:
+                completed = last_success.completed_at or last_success.started_at
+                gsheet_last_sync = localtime(completed).strftime('%d/%m/%Y, %H:%M')
+            else:
+                # A failed attempt must never become "Last pulled". Retain a
+                # successful legacy timestamp if no successful job is recorded.
+                state = gsheet_state()
+                if state and state.get('last_sync') and not state.get('errors'):
+                    try:
+                        completed = datetime.fromtimestamp(
+                            float(state['last_sync']), tz=datetime_timezone.utc,
+                        )
+                        gsheet_last_sync = localtime(completed).strftime('%d/%m/%Y, %H:%M')
+                    except (TypeError, ValueError, OverflowError, OSError):
+                        pass
             if latest_sync_run:
-                completed = latest_sync_run.completed_at or latest_sync_run.started_at
-                gsheet_last_sync = localtime(completed).strftime('%b %d at %H:%M')
                 gsheet_last_status = latest_sync_run.status
                 gsheet_last_summary = latest_sync_run.summary
-            else:
-                state = gsheet_state()
-                if state and state.get('last_sync'):
-                    gsheet_last_sync = datetime.fromtimestamp(state['last_sync']).strftime('%b %d at %H:%M')
             next_pull = next_gsheet_pull()
             if next_pull:
                 gsheet_next_pull = next_pull['scheduled_for']
@@ -16028,7 +16044,7 @@ class OrderingSheetView(LoginRequiredMixin, View):
             'gina_status_options': gina_status_options,
             'ordering_supplier_choices': OrderingSheetEntry.SUPPLIER_CHOICES,
             'can_administer': has_admin_access(request),
-            'can_delete_entries': request.user.is_staff,
+            'can_delete_entries': request.user.is_authenticated,
             'view_mode': view_mode,
             'embed': embed,
             'gsheet_enabled': gsheet_enabled,
@@ -16045,15 +16061,59 @@ class OrderingSheetView(LoginRequiredMixin, View):
             response['X-Frame-Options'] = 'SAMEORIGIN'
         return response
 
+    def _delete_entries(self, request, action):
+        """Acknowledge requested rows without disturbing other on-screen edits."""
+        wants_json = request.headers.get('X-Ordering-Delete') == '1'
+
+        def respond(ok, message, ids=(), status=200):
+            if wants_json:
+                return JsonResponse(
+                    {'ok': ok, 'deleted_ids': list(ids), 'message' if ok else 'error': message},
+                    status=status,
+                )
+            (messages.success if ok else messages.error)(request, message)
+            return self._redirect(request)
+
+        raw = request.POST.get('entry_ids' if action == 'delete_selected' else 'entry_id', '')
+        try:
+            ids = sorted({int(value.strip()) for value in raw.split(',') if value.strip()})
+            if not ids or any(value <= 0 or value > 9223372036854775807 for value in ids):
+                raise ValueError
+            if action == 'delete' and len(ids) != 1:
+                raise ValueError
+        except (TypeError, ValueError):
+            return respond(False, 'Choose valid ordering-sheet entries to remove.', status=400)
+
+        with transaction.atomic():
+            entries = list(OrderingSheetEntry.objects.select_for_update().filter(pk__in=ids).order_by('pk'))
+            if not entries:
+                return respond(False, 'Ordering-sheet entry not found.', status=404)
+            active = [entry for entry in entries if not entry.is_deleted]
+            if active:
+                OrderingSheetEntry.objects.filter(pk__in=[entry.pk for entry in active]).update(
+                    is_deleted=True, deleted_at=now(), deleted_by=request.user,
+                )
+                UserAction.objects.bulk_create([
+                    UserAction(user=request.user, action='ordering_delete', target=entry.name)
+                    for entry in active
+                ])
+        # A repeated request after a lost response is safe: acknowledge the row
+        # without replacing its original Recovery metadata or adding an audit.
+        count = len(active)
+        message = (
+            f"Removed {count} entr{'y' if count == 1 else 'ies'} from the ordering sheet."
+            if count else 'The selected entries are already in Recovery.'
+        )
+        return respond(True, message, [entry.pk for entry in entries])
+
     def get(self, request):
         return self._render_page(request)
 
     def post(self, request):
         action = request.POST.get('action')
 
-        if action in {'delete', 'delete_selected'} and not request.user.is_staff:
-            messages.error(request, "Only staff accounts can delete ordering-sheet entries.")
-            return self._redirect(request)
+        if action in {'delete', 'delete_selected'}:
+            return self._delete_entries(request, action)
 
         if action == 'sync_gsheet':
             if not has_admin_access(request):
@@ -16349,38 +16409,6 @@ class OrderingSheetView(LoginRequiredMixin, View):
             UserAction.objects.create(user=request.user, action='ordering_edit',
                 target=entry.name)
             messages.success(request, f"Updated “{entry.name}”.")
-            return self._redirect(request)
-
-        elif action == 'delete_selected':
-            raw = request.POST.get('entry_ids', '')
-            ids = [int(x) for x in raw.split(',') if x.strip().isdigit()]
-            count = 0
-            for entry in OrderingSheetEntry.objects.filter(pk__in=ids, is_deleted=False):
-                entry.is_deleted = True
-                entry.deleted_at = now()
-                entry.deleted_by = request.user
-                entry.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
-                UserAction.objects.create(user=request.user, action='ordering_delete',
-                    target=entry.name)
-                count += 1
-            if count:
-                messages.success(request, f"Removed {count} entr{'y' if count == 1 else 'ies'} from the ordering sheet.")
-            else:
-                messages.error(request, "No matching ordering-sheet entries found.")
-            return self._redirect(request)
-
-        elif action == 'delete':
-            entry = OrderingSheetEntry.objects.filter(pk=request.POST.get('entry_id'), is_deleted=False).first()
-            if entry:
-                entry.is_deleted = True
-                entry.deleted_at = now()
-                entry.deleted_by = request.user
-                entry.save(update_fields=['is_deleted', 'deleted_at', 'deleted_by'])
-                UserAction.objects.create(user=request.user, action='ordering_delete',
-                    target=entry.name)
-                messages.success(request, f"Removed “{entry.name}” from the ordering sheet.")
-            else:
-                messages.error(request, "Ordering-sheet entry not found.")
             return self._redirect(request)
 
         return self._redirect(request)

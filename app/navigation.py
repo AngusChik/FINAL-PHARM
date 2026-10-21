@@ -6,6 +6,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 
 PRODUCT_RETURN_LABELS = {
     'inventory_display': 'Back to Inventory',
+    'sales_analytics': 'Back to Sales Analytics',
     'product_search': 'Back to Product Search',
     'product_details': 'Back to Product Details',
     'prescription_drug_detail': 'Back to Prescription Drug Details',
@@ -107,6 +108,7 @@ def safe_product_details_return_url(request, raw):
         inventory_url.rstrip('/'),
         reverse('expired_products').rstrip('/'),
         reverse('daily_report').rstrip('/'),
+        reverse('sales_analytics').rstrip('/'),
     }
     if urlsplit(candidate).path.rstrip('/') not in allowed_paths:
         try:

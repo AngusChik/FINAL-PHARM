@@ -9,9 +9,10 @@
 
     <!-- Design tokens (palette + legacy per-page variable aliases) -->
     <link rel="stylesheet" href="{% static 'css/tokens.css' %}?v=20260925-type1">
-    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20260925-type1">
+    <link rel="stylesheet" href="{% static 'css/ui-system.css' %}?v=20261019-pu-phone1">
     <link rel="stylesheet" href="{% static 'css/stock-visibility.css' %}?v=20260925-type1">
     <script src="{% static 'js/product_lookup.js' %}?v=20260814-lookup1" defer></script>
+    <script src="{% static 'js/expiry_dates.js' %}?v=20261013-expiry1" defer></script>
 
     <style>
         /* Reset & Base Styles */
@@ -1160,7 +1161,7 @@
     </style>
     <link rel="stylesheet" href="{% static 'css/navigation-layout.css' %}?v=20260925-type1" media="screen">
     {% if ui_compact_spacing %}
-    <link rel="stylesheet" href="{% static 'css/compact-spacing.css' %}?v=20260925-spacing2" media="screen">
+    <link rel="stylesheet" href="{% static 'css/compact-spacing.css' %}?v=20261019-pu-phone1" media="screen">
     {% endif %}
     <link rel="stylesheet" href="{% static 'css/typography.css' %}?v=20260925-type2" media="screen">
     <script src="{% static 'js/typography.js' %}?v=20260925-type1"></script>
@@ -1441,12 +1442,12 @@
     <style>
       .os-slider-toggle {
         position: fixed; right: 12px; top: 176px; bottom: auto; z-index: 998;
-        color: #fff; background: #2563eb; border: none; border-radius: 8px 0 0 8px;
+        color: #fff; background: #16833b; border: none; border-radius: 8px 0 0 8px;
         padding: 16px 8px; font-size: calc(15px * var(--ui-type-scale, 1)); font-weight: 700;
         writing-mode: vertical-rl; text-orientation: mixed; cursor: pointer;
         box-shadow: -2px 0 10px rgba(0,0,0,0.15); letter-spacing: 1px;
       }
-      .os-slider-toggle:hover { background: #1d4ed8; }
+      .os-slider-toggle:hover { background: #11672e; }
       .os-slider-toggle .toggle-label { display: inline-block; }
       .os-slider-overlay {
         position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9996;
@@ -1460,24 +1461,24 @@
         transition: right 0.3s ease;
       }
       .os-slider-panel.open { right: 0; }
-      .os-slider-header {
-        padding: 16px 22px; background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
-        color: #fff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+      #osSliderPanel .os-slider-header {
+        min-height: 36px; padding: 4px 8px; background: #ecfdf5; border-bottom: 1px solid #dbe2ea;
+        color: #14532d; display: flex; justify-content: flex-end; align-items: center; flex-shrink: 0;
       }
-      .os-slider-titlewrap { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
-      .os-slider-header h2 { font-size: calc(18px * var(--ui-type-scale, 1)); font-weight: 700; margin: 0; white-space: nowrap; }
-      .os-slider-subtitle { font-size: calc(15px * var(--ui-type-scale, 1)); font-weight: 500; color: rgba(255,255,255,0.85); }
-      .os-slider-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-      .os-slider-open-full {
-        color: #fff; text-decoration: none; font-size: calc(15px * var(--ui-type-scale, 1)); font-weight: 600;
-        background: rgba(255,255,255,0.2); padding: 6px 10px; border-radius: 7px;
+      #osSliderPanel .os-slider-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+      #osSliderPanel .os-slider-open-full {
+        color: #166534; text-decoration: none; font-size: calc(12px * var(--ui-type-scale, 1)); font-weight: 600;
+        background: #fff; padding: 3px 8px; border: 1px solid #bbd7c4; border-radius: 4px;
       }
-      .os-slider-open-full:hover { background: rgba(255,255,255,0.32); }
-      .os-slider-close {
-        background: rgba(255,255,255,0.2); border: none; color: #fff; width: 32px; height: 32px;
-        border-radius: 8px; font-size: calc(20.5px * var(--ui-type-scale, 1)); cursor: pointer; display: flex; align-items: center; justify-content: center;
+      #osSliderPanel .os-slider-open-full:hover { background: #dcfce7; }
+      #osSliderPanel .os-slider-close {
+        background: #fff; border: 1px solid #bbd7c4; color: #166534; width: 28px; height: 28px;
+        border-radius: 4px; font-size: calc(20px * var(--ui-type-scale, 1)); cursor: pointer; display: flex; align-items: center; justify-content: center;
       }
-      .os-slider-close:hover { background: rgba(255,255,255,0.35); }
+      #osSliderPanel .os-slider-close:hover { background: #dcfce7; }
+      @media (pointer: coarse) {
+        #osSliderPanel :is(.os-slider-open-full, .os-slider-close) { min-height: 44px; min-width: 44px; }
+      }
       .os-slider-body { flex: 1; min-height: 0; }
       .os-slider-iframe { width: 100%; height: 100%; border: 0; display: block; background: #f8fafc; }
       @media (max-width: 768px) {
@@ -1489,10 +1490,7 @@
     <div class="os-slider-overlay" id="osSliderOverlay"></div>
     <div class="os-slider-panel" id="osSliderPanel">
       <div class="os-slider-header">
-        <div class="os-slider-titlewrap">
-          <h2>Ordering Sheet</h2>
-          <span class="os-slider-subtitle">Flag items that need ordering throughout the day. Only GINA can set a row's status.</span>
-        </div>
+        <h2 class="ui-sr-only">Ordering Sheet</h2>
         <div class="os-slider-actions">
           <a href="{% url 'ordering_sheet' %}" class="os-slider-open-full">Open full page &#8599;</a>
           <button class="os-slider-close" id="osSliderClose" aria-label="Close">&times;</button>
@@ -1512,7 +1510,15 @@
       if (!panel || !frame) return;
       var SRC = "{% url 'ordering_sheet' %}?embed=1";
 
+      function syncOrderingFrame() {
+        var banner = document.querySelector('.ui-development-banner');
+        var offset = banner ? Math.ceil(banner.getBoundingClientRect().height) : 0;
+        panel.style.top = offset + 'px';
+        panel.style.height = 'calc(100dvh - ' + offset + 'px)';
+      }
+
       function open() {
+        syncOrderingFrame();
         frame.src = SRC;            // (re)load fresh each open so new rows show
         panel.classList.add('open');
         overlay.classList.add('open');
@@ -1533,6 +1539,9 @@
       if (toggle) toggle.addEventListener('click', open);
       if (closeBtn) closeBtn.addEventListener('click', close);
       if (overlay) overlay.addEventListener('click', close);
+      window.addEventListener('resize', function () {
+        if (panel.classList.contains('open')) syncOrderingFrame();
+      });
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && panel.classList.contains('open')) close();
       });
@@ -2252,7 +2261,7 @@
     </script>
     {% endif %}
 
-    <script src="{% static 'js/ui-system.js' %}?v=20260907-ordering-toolbar1" defer></script>
+    <script src="{% static 'js/ui-system.js' %}?v=20261019-pu-phone1" defer></script>
     <!-- Drag-to-resize for all right-edge slide-out panels (Search, Ordering, Stock Log, …) -->
     <script src="{% static 'js/panel_resize.js' %}?v=20260818-history1" defer></script>
 </body>

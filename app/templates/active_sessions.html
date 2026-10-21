@@ -170,9 +170,13 @@
 
   <div class="as-kpis">
     <div class="as-kpi as-kpi-slots">
-      <div class="as-kpi-label">PU slots</div>
+      <div class="as-kpi-label">PU computers</div>
       <div class="as-kpi-value" id="asSlots">{{ active_slots }} / {{ max_slots }}</div>
-      <div class="as-kpi-sub">PU devices using a slot; admins are separate</div>
+      <div class="as-kpi-sub">Phones and admins have separate places</div>
+    </div>
+    <div class="as-kpi">
+      <div class="as-kpi-label">Phones</div>
+      <div class="as-kpi-value" id="asPhoneSlots">{{ active_phone_slots }} / {{ max_phone_slots }}</div>
     </div>
     <div class="as-kpi">
       <div class="as-kpi-label">Online now</div>
@@ -272,6 +276,7 @@
       .then(function(res) { return res.json(); })
       .then(function(data) {
         document.getElementById('asSlots').textContent = data.active_slots + ' / ' + data.max_slots;
+        document.getElementById('asPhoneSlots').textContent = data.active_phone_slots + ' / ' + data.max_phone_slots;
         document.getElementById('asOnline').textContent = data.online_count;
         document.getElementById('asTotal').textContent = data.total;
         document.getElementById('asAsOf').textContent = data.as_of;

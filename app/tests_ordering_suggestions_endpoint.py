@@ -71,10 +71,14 @@ class OrderingSuggestionsEndpointTests(TestCase):
 
     @staticmethod
     def _register_session(client, user):
-        session_key = client.session.session_key
+        # Match CustomLoginView so endpoint query counts exclude a one-time
+        # upgrade of an older session that has no device identity yet.
+        session = client.session
+        session['device_type'] = UserSession.DEVICE_COMPUTER
+        session.save()
         UserSession.objects.get_or_create(
             user=user,
-            session_key=session_key,
+            session_key=session.session_key,
         )
 
     def _staff_client(self):

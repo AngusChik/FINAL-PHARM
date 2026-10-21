@@ -124,8 +124,8 @@ class SitewideContentFitContracts(SimpleTestCase):
             styles,
             r"body\.app-shell \.nav-links li a \{[^}]+font-size: calc\(0\.9525rem \* var\(--ui-type-scale, 1\)\);",
         )
-        self.assertIn("tokens.css' %}?v=20260925-type1", base)
-        self.assertIn("ui-system.css' %}?v=20260925-type1", base)
+        self.assertRegex(base, r"tokens\.css' %\}\?v=[\w-]+")
+        self.assertRegex(base, r"ui-system\.css' %\}\?v=[\w-]+")
 
     def test_confirmation_rows_reflow_without_clipping_on_phones(self):
         checkout = self._template("checkout_success.html")
@@ -240,7 +240,7 @@ class SitewideContentFitContracts(SimpleTestCase):
         )
         self.assertNotIn("min-width:860px", order_detail)
 
-    def test_purchase_summary_keeps_completion_at_the_sticky_top(self):
+    def test_purchase_summary_keeps_completion_below_search_and_above_totals(self):
         purchase = self._template("order_form.html")
 
         action = purchase.index('<div class="ot-box-primary-action">')
@@ -253,15 +253,15 @@ class SitewideContentFitContracts(SimpleTestCase):
             "grid-template-columns: minmax(300px, 3fr) minmax(0, 7fr);",
             purchase,
         )
-        self.assertIn("grid-template-rows: auto minmax(0, 1fr);", purchase)
-        self.assertIn("grid-row: 1 / span 2;", purchase)
+        self.assertIn("grid-template-rows: auto;", purchase)
+        self.assertIn('<div class="purchase-left-stack">', purchase)
         self.assertIn("LEFT 30%: ORDER SUMMARY BELOW BARCODE", purchase)
         heading = purchase.index('<div class="scan-product-heading">')
         lookup = purchase.index('<div class="form-group autocomplete-wrapper', heading)
         heading_region = purchase[heading:lookup]
         self.assertLess(heading_region.index("Scan product"), heading_region.index("Ready"))
         self.assertEqual(purchase.count('<span class="hint-ready">Ready</span>'), 1)
-        self.assertIn("position: sticky; top: 12px;", purchase)
+        self.assertLess(lookup, action)
         self.assertIn("max-height: calc(100vh - 24px);", purchase)
         self.assertIn("flex: 1 1 auto; min-height: 0; overflow-y: auto;", purchase)
         self.assertNotIn("order: -1;", purchase)

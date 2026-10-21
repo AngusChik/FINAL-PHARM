@@ -1809,7 +1809,7 @@ class UserSession(models.Model):
     )
     # Regular users share the visible login username PU. The backend allocates
     # one unique number to each live session so the six devices remain distinct.
-    # Staff/admin sessions leave this null and do not consume a PU slot.
+    # Staff/admin and phone sessions leave this null and do not consume a PU slot.
     pu_slot = models.PositiveSmallIntegerField(null=True, blank=True, unique=True)
     # The URL path this computer is currently viewing — powers the live nav
     # "who's on which screen" bubble (refreshed by a client heartbeat).
@@ -1825,6 +1825,8 @@ class UserSession(models.Model):
     @property
     def identity_label(self):
         """User-facing backend identity for live-session and presence screens."""
+        if self.user_id and not self.user.is_staff and self.device_type == self.DEVICE_PHONE:
+            return f"{self.user.get_username()} phone"
         if self.user_id and not self.user.is_staff and self.pu_slot:
             return f"PU{self.pu_slot}"
         return self.user.get_username() if self.user_id else '—'

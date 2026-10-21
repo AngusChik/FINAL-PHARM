@@ -49,7 +49,7 @@ class CompactSpacingScopeTests(SimpleTestCase):
                 html = self.render_shell(path)
                 self.assertIn('navigation-layout.css?v=20260925-type1" media="screen"', html)
                 self.assertIn('app-shell ui-compact', html)
-                self.assertIn('compact-spacing.css?v=20260925-spacing2" media="screen"', html)
+                self.assertRegex(html, r'compact-spacing\.css\?v=[^"\s]+" media="screen"')
 
 
 @override_settings(AXES_ENABLED=False)
