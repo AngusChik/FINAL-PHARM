@@ -20,6 +20,12 @@ a QR code and the server's LAN URL. A staff member scans it with their phone
 camera to open the app over the shop Wi-Fi, then signs in with their **PU
 account**.
 
+- **Capacity:** six PU computers plus four additional phones can stay signed in
+  at once (`MAX_PU_SESSIONS=6`, `MAX_PU_PHONE_SESSIONS=4`). Phones connected through
+  **Connect Phone** use a separate allowance from the PU1–PU6 computer identities.
+  A seventh computer or fifth phone is refused without disconnecting existing
+  sessions. If `.env` already sets a different phone limit, change it to `4` and
+  restart Pharmacy to use the four-phone allowance.
 - **Session length:** a phone login lasts **2 hours**
   (`PHONE_SESSION_AGE` in `inventory/settings.py`, default `7200s`), versus the
   8-hour shift session on a shop computer (`SESSION_COOKIE_AGE`). Override with
@@ -33,9 +39,11 @@ account**.
 How it works: the QR points at `/connect-phone/`, which flags the phone's
 pre-login session; `CustomLoginView` honours that flag for PU accounts only —
 setting the 2-hour expiry and tagging the `UserSession` as a phone
-(`app/views.py`). The LAN address comes from `DJANGO_ALLOWED_HOSTS` (set via
-`configure_ip.py`); the QR PNG is generated server-side with `qrcode` (no
-internet needed at runtime).
+(`app/views.py`). In production, the QR uses the HTTPS address in `PHARMACY_HOST`
+(set via `configure_ip.py`), with `DJANGO_ALLOWED_HOSTS` as a fallback. The QR PNG
+is generated server-side with `qrcode` (no internet needed at runtime). See
+[the HTTPS deployment guide](DEPLOYMENT_HTTPS.md#six-pu-computers-and-phone-access)
+for phone certificate setup.
 
 ## First-time setup
 
